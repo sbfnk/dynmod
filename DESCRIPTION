@@ -1,0 +1,13 @@
+Package: dynmod
+Type: Package
+Title: Dynamic models
+Version: 0.1
+Date: 2014-04-04
+Author: Sebastian Funk
+Maintainer: Sebastian Funk <sebastian.funk@lshtm.ac.uk>
+Description: Runs dynamic infectious disease models
+License: GPL-3
+Depends:
+    Rcpp (>= 0.10.3),
+    data.table
+LinkingTo: Rcpp

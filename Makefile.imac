@@ -1,0 +1,63 @@
+#------ GNU g++ -----------------------------------------------------
+
+GCC         = clang
+CPPFLAGS    = -I/users/seb/.local/include -Iinclude -O2 -fPIC
+
+LINKER      = clang
+LDFLAGS     = -L/users/seb/.local/lib -lboost_program_options-mt -lboost_system-mt -lboost_thread-mt -O2 -lstdc++
+
+RCPPFLAGS   = -I/usr/local/R-3.0.1/lib64/R/include -DNDEBUG
+RLDFLAGS    = -L/usr/local/R/lib64
+
+#--------------------------------------------------------------------
+
+MAKEDEPEND  = makedepend
+DEPENDFLAGS = -m 
+
+#--------------------------------------------------------------------
+
+EXEC        = tsir
+OBJECTS     = src/simulation.o src/gravity_model.o \
+		src/param_container.o src/city_calculator.o src/pearson.o \
+                src/getseed.o
+#--------------------------------------------------------------------
+
+all:  bin/$(EXEC) src/tsir.so
+
+bin/$(EXEC): $(OBJECTS) src/tsir.o
+	@echo ... linking:
+	$(LINKER) src/tsir.o $(OBJECTS) $(LDFLAGS) $(OPTFLAGS) $(CPPFLAGS) -o $@
+	@echo
+
+src/%.o: src/%.cpp
+	@echo ... compiling $<:	
+	$(GCC) -c $(CPPFLAGS) $(OPTFLAGS) -o $@ -MMD -MP -MF $(patsubst src/%.o, src/.%.d, $@) $<
+	@echo
+
+src/tsir.so: bin/tsir
+	@echo ... building R package
+	PKG_CXXFLAGS="$(CPPFLAGS)" R CMD INSTALL .
+	@echo
+
+DEPS = $(patsubst src/%.o, src/.%.d, $(OBJECTS)) src/.tsir.d src/.rcpp_tsir.d
+
+ifneq ($(MAKECMDGOALS),clean)
+-include $(DEPS)
+endif   
+
+htmldoc:
+	doxygen
+
+pdfdoc: htmldoc
+	$(MAKE) -C doc/latex pdf
+
+clean:
+	@echo ... cleaning
+	@rm -f src/*.o src/.*.d bin/* lib/*
+	@echo ... done
+
+cleaner:
+	@echo '... cleaning also *~'
+	@rm -f bin/* src/*.o *~ .#*
+	@echo ... done
+
