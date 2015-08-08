@@ -33,7 +33,7 @@ private:
   double y;  //!< \\sum y
   double x2; //!< \\sum x^2
   double y2; //!< \\sum y^2
-  size_t n;  //!< counter
+  int n;  //!< counter
 };
 
 #endif
