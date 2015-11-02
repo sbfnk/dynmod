@@ -382,13 +382,14 @@ backcalc.population <- function(nyears = 1, lower.age.limits = NULL) {
 ##'
 ##' Fill parameters for births, deaths and ageing, with England &
 ##' Wales population data
-##' @param year.limits first and last year
 ##' @param age.limits Lower limits of the age groups
-##' @param extra.parameters Extra parameters, especially whether we are interpolating (in which case we ##' need another year of data at both ends)
+##' @param year.limits first and last year
+##' @param interpolate whether to ineterpolate between years
+##' @param df whether to return time-dependent variables as data frame
 ##' @return list of parameters
 ##' @export
 ##' @author Sebastian Funk
-ew.pop.parameters <- function(age.limits, year.limits = NULL, interpolate = FALSE) {
+ew.pop.parameters <- function(age.limits, year.limits = NULL, interpolate = FALSE, df = FALSE) {
 
     data(births_ew)
     data(deaths_ew)
@@ -413,13 +414,28 @@ ew.pop.parameters <- function(age.limits, year.limits = NULL, interpolate = FALS
     ## ageing rates depend on the widths of age bands
     parameters[["ageing"]] <- 1 / diff(unique(age.limits))
 
-    ## we're looking at annual data, births and deaths have an entry
-    ## per time point
-    parameters[["paramStep"]] <- 1
-
-    parameters[["years"]] <-
+    years <- 
         unique(intersect(births.ew[year >= min(year.limits) & year <= max(year.limits), year], 
                          deaths.ew[year >= min(year.limits) & year <= max(year.limits), year]))
+    if (df)
+    {
+        parameters[["births"]] <-
+            data.frame(year = years,
+                       value = births.ew[year >= min(year.limits) & year <= max(year.limits), total])
+        parameters[["deaths"]] <-
+            data.frame(year = years,
+                       value = deaths.ew[year >= min(year.limits) & year <= max(year.limits), deaths])
+        parameters[["ageing"]] <-
+            data.frame(age = c(0, seq_along(parameters[["ageing"]])),
+                       value = c(parameters[["ageing"]], 0))
+
+    } else
+    {
+        parameters[["years"]] <- years
+        ## we're looking at annual data, births and deaths have an entry
+        ## per time point
+        parameters[["paramStep"]] <- 1
+    }
 
     return(parameters)
 
@@ -532,8 +548,9 @@ ms.init <- function(parameters) {
                                   population = sum(population)),
                            by = list(year, lower.age.limit)]
 
+    min.year <- ms.ew.age[, min(year)]
     ms.init.infected <-
-        ms.ew.age[year == min(year),
+        ms.ew.age[year == min.year,
                   list(abs.prevalence = sum(abs.incidence) /
                            parameters[["underreporting"]] *
                                (latent.period + infectious.period),
@@ -916,7 +933,7 @@ sample.cpx.prior <- function(fixed.parameters = list()) {
         parameters[["maternal.immunity"]] <- runif(1, 0, 1)
     }
 
-    parameters <- c(parameters, sample.cpx.init(fixed.parameters))
+    parameters <- c(fixed.parameters, parameters, sample.cpx.init(fixed.parameters))
 
     return(parameters)
 }
@@ -933,7 +950,8 @@ sample.ms.init <- function(parameters) {
 
     lower.limits <- agegroups.to.limits(colnames(parameters[["mixing"]]))
 
-    first.pop.state <- ms.ew.age[year == min(year),
+    min.year <- ms.ew.age[, min(year)]
+    first.pop.state <- ms.ew.age[year == min.year,
                                  list(population = mean(population)),
                                  by = lower.age.limit]
     first.pop.state <- reduce.agegroups(first.pop.state, lower.limits)
@@ -1026,25 +1044,29 @@ sample.ms.prior <- function(fixed.parameters = list()) {
     {
         parameters[["gamma"]] <- runif(1, 1/(7/365.25), 1/(6/365.25))
     }
+    
     if (!("rho" %in% names(fixed.parameters)))
     {
         parameters[["rho"]] <- runif(1, 1/(7/365.25), 1/(6/365.25))
     }
+    
     if (!("underreporting" %in% names(fixed.parameters)))
     {
         parameters[["underreporting"]] <- runif(1, 0.1, 0.9)
     }
+    
     if ("child.mixing.group" %in% names(fixed.parameters) &
         !("child.mixing" %in% names(fixed.parameters)))
     {
         parameters[["child.mixing"]] <- runif(1, 0.5, 2)
     }
+    
     if (!("maternal.immunity" %in% names(fixed.parameters)))
     {
         parameters[["maternal.immunity"]] <- runif(1, 0, 1)
     }
 
-    parameters <- c(parameters, sample.ms.init(fixed.parameters))
+    parameters <- c(fixed.parameters, parameters, sample.ms.init(fixed.parameters))
 
     return(parameters)
 }
