@@ -4,7 +4,7 @@
 \alias{melt.trajectory}
 \title{Melt a trajectory in terms of time and age groups}
 \usage{
-melt.trajectory(traj, age.labels = NULL, time.label = NULL)
+\method{melt}{trajectory}(traj, age.labels = NULL, time.label = NULL)
 }
 \arguments{
 \item{traj}{Trajectory}

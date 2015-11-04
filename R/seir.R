@@ -285,7 +285,7 @@ runSIR <- function(parameters, init, times, age.labels = NULL,
                                          grep("^N\\.[0-9]+",
                                             colnames(runin.traj)), with = F])
 
-        init.scaling <- rep(scaling, length(init) %/% length(scaling))
+        init.scaling <- rep(scaling, length(init.state) %/% length(scaling))
         init.diff <- length(init) - length(init.scaling)
         if (init.diff > 0)
         {

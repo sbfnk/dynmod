@@ -4,14 +4,17 @@
 \alias{ew.pop.parameters}
 \title{Get population parameters for England & Wales}
 \usage{
-ew.pop.parameters(age.limits, year.limits = NULL, interpolate = FALSE)
+ew.pop.parameters(age.limits, year.limits = NULL, interpolate = FALSE,
+  df = FALSE)
 }
 \arguments{
 \item{age.limits}{Lower limits of the age groups}
 
 \item{year.limits}{first and last year}
 
-\item{extra.parameters}{Extra parameters, especially whether we are interpolating (in which case we ##' need another year of data at both ends)}
+\item{interpolate}{whether to ineterpolate between years}
+
+\item{df}{whether to return time-dependent variables as data frame}
 }
 \value{
 list of parameters
