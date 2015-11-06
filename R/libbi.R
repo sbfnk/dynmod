@@ -7,31 +7,33 @@
 ##' @param quantile.span if plots are produced, which quantile to use for confidence intervals
 ##' @param date.origin date of origin (if dates are to be calculated)
 ##' @param date.unit unit of date
+##' @param time.dim time dimension ("nr" by default)
 ##' @param data data (with a "date" and "value" column)
 ##' @param id one or more run ids to plot
 ##' @param extra.aes extra aesthetics (for ggplot)
 ##' @param all.times whether to plot all times (not only ones with data)
-##' @param hline horizontal marker lines, named list in format (state = value)
+##' @param hline horizontal marker lines, named vector in format (state = value)
 ##' @param burn How many runs to burn
 ##' @param thin How many runs to thin per run kept
 ##' @param steps whether to plot lines as stepped lines
 ##' @param select list of selection criteria
 ##' @param shift list of dimensions to be shifted, and by how much
 ##' @param data.colour colour for plotting the data
+##' @param base.alpha
 ##' @param ... options for geom_step / geom_line
 ##' @return list of results
 ##' @import data.table ggthemr ggplot2 lubridate scales truncnorm reshape2
 ##' @author Sebastian Funk
 plot_libbi_results <- function(res, states = "all", params = "all", noises = "all",
                                quantile.span = c(0.5, 0.95),
-                               date.origin, date.unit = "day",
+                               date.origin, date.unit = "day", time.dim = "nr",
                                data, id, extra.aes = c(),
                                all.times = FALSE, hline,
                                burn, thin, steps = FALSE, select,
                                shift, data.colour = "red", base.alpha = 0.5, ...)
 {
     ret_data <- list()
-    ## copy data data table, rather than 
+    ## copy data data table, rather than
     res <- lapply(res, copy)
 
     if (steps)
@@ -56,79 +58,6 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
     } else if ("fill" %in% names(extra.aes) & !("color" %in% names(extra.aes)))
     {
         extra.aes["color"] <- extra.aes["fill"]
-    }
-
-    if ("time" %in% names(res))
-    {
-        if ("file" %in% colnames(res[["time"]]))
-        {
-            min.file <- res[["time"]][, min(file)]
-            times <- copy(res[["time"]][file == min.file])
-        } else
-        {
-            times <- copy(res[["time"]])
-        }
-
-        if (!missing(date.origin))
-        {
-            if (date.unit == "day")
-            {
-                times[, time := date.origin + value]
-                times[, time_next := time + 1]
-            } else if (date.unit == "week")
-            {
-                times[, time := date.origin + value * 7]
-                times[, time_next := time + 7]
-            } else if (date.unit == "month")
-            {
-                times[, time := date.origin %m+% months(as.integer(value))]
-                times[, time_next := time %m+% months(1)]
-            } else if (date.unit == "year")
-            {
-                times[, time := date.origin + years(as.integer(value))]
-                times[, time_next := time %m+% months(12)]
-            }
-        } else {
-            times[, time := value]
-            times[, time_next := time + 1]
-        }
-        times[, value := NULL]
-        if ("file" %in% colnames(times))
-        {
-            times[, file := NULL]
-        }
-
-        sdt <- data.table(state = character(0))
-        if (missing(date.origin))
-        {
-            sdt[, time := numeric(0)]
-            sdt[, time_next := numeric(0)]
-        } else
-        {
-            sdt[, time := as.Date(character(0))]
-            sdt[, time_next := as.Date(character(0))]
-        }
-        sdt[, value := numeric(0)]
-        if (missing(id))
-        {
-            for (i in seq_along(quantile.span))
-            {
-                sdt[, paste("min", i, sep = ".") := numeric(0)]
-                sdt[, paste("max", i, sep = ".") := numeric(0)]
-            }
-        } else
-        {
-            sdt[, iteration := numeric(0)]
-        }
-        for (extra in unique(unname(extra.aes)))
-        {
-            sdt[, paste(extra) := character(0)]
-        }
-    } else {
-        if (!("none" %in% states && "none" %in% noises))
-        {
-            stop("no 'time' element in res and states and/or noises requested")
-        }
     }
 
     if (!missing(burn) || !missing(thin))
@@ -162,6 +91,33 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
         }
     }
 
+    sdt <- data.table(state = character(0))
+    if (missing(date.origin))
+    {
+        sdt[, time := numeric(0)]
+        sdt[, time_next := numeric(0)]
+    } else
+    {
+        sdt[, time := as.Date(character(0))]
+        sdt[, time_next := as.Date(character(0))]
+    }
+    sdt[, value := numeric(0)]
+    if (missing(id))
+    {
+        for (i in seq_along(quantile.span))
+        {
+            sdt[, paste("min", i, sep = ".") := numeric(0)]
+            sdt[, paste("max", i, sep = ".") := numeric(0)]
+        }
+    } else
+    {
+        sdt[, iteration := numeric(0)]
+    }
+    for (extra in unique(unname(extra.aes)))
+    {
+        sdt[, paste(extra) := character(0)]
+    }
+
     plot_states <- c()
     p <- NULL
     ip <- NULL
@@ -183,8 +139,37 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
 
         for (state in plot_states)
         {
+            values <- copy(res[[state]])
+
             if (!is.null(values))
             {
+                if (time.dim %in% colnames(values))
+                {
+                    if (!missing(date.origin))
+                    {
+                        if (date.unit == "day")
+                        {
+                            values[, time := date.origin + get(time.dim)]
+                            values[, time_next := time + 1]
+                        } else if (date.unit == "week")
+                        {
+                            values[, time := date.origin + get(time.dim) * 7]
+                            values[, time_next := time + 7]
+                        } else if (date.unit == "month")
+                        {
+                            values[, time := date.origin %m+% months(as.integer(get(time.dim)))]
+                            values[, time_next := time %m+% months(1)]
+                        } else if (date.unit == "year")
+                        {
+                            values[, time := date.origin + years(as.integer(get(time.dim)))]
+                            values[, time_next := time %m+% months(12)]
+                        }
+                    } else {
+                        values[, time := get(time.dim)]
+                        values[, time_next := time + 1]
+                    }
+                }
+
                 if (!missing(select))
                 {
                     for (var_name in names(select))
@@ -199,7 +184,7 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
                         }
                     }
                 }
-                
+
                 if (!missing(shift))
                 {
                     for (var_name in names(shift))
@@ -212,7 +197,7 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
                     }
                 }
 
-                summarise_columns <- c("nr", "iteration")
+                summarise_columns <- c("nr", "iteration", "time", "time_next")
 
                 if (!missing(extra.aes))
                 {
@@ -266,12 +251,7 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
                 {
                     values[, paste(wo) := "n/a"]
                 }
-                values <- merge(values, times, by = "nr")
-                values[, nr := NULL]
-                ## if ("np" %in% colnames(values))
-                ## {
-                ##     values[, np := NULL]
-                ## }
+                values[, paste(time.dim) := NULL]
                 sdt <- rbind(sdt,
                              data.table(state = rep(state, nrow(values)),
                                         values))
@@ -308,7 +288,6 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
                     sdt <- sdt[(time >= min(dataset[, time])) &
                                (time <= max(dataset[, time]))]
                 }
-                ## dataset <- merge(dataset, sdt[, list(time, time_next)], by = "time")
                 dataset[, min := 0]
                 dataset[, max := 0]
                 dataset[, iteration := NA_real_]
@@ -329,22 +308,13 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
         if (nrow(sdt) > 0)
         {
             p <- ggplot(sdt, do.call(aes_string, aesthetic))
-            if ("Incidence" %in% plot_states)
-            {
-                ip <- ggplot(sdt[state == "Incidence"],
-                             do.call(aes_string, aesthetic))
-            } else if ("Prevalence" %in% plot_states)
-            {
-                ip <- ggplot(sdt[state == "Prevalence"],
-                             do.call(aes_string, aesthetic))
-            }
 
             if (!missing(hline))
             {
                 for (hline_state in names(hline))
                 {
                     p <- p + geom_hline(data = data.frame(state = hline_state,
-                                                          yintercept = hline[[hline_state]]),
+                                                          yintercept = hline[hline_state]),
                                         aes(yintercept = yintercept), color = "black")
                 }
             }
@@ -362,72 +332,33 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
                     str <- as.list(paste(c("max", "min"), i, sep = "."))
                     names(str) <- c("ymax", "ymin")
                     p <- p + ribbon_func(do.call(aes_string, str), alpha = alpha)
-                    if (!is.null(ip))
-                    {
-                        ip <- ip + ribbon_func(do.call(aes_string, str), alpha = alpha)
-                    }
                     alpha <- alpha / 2
                 }
             }
             if ("color" %in% names(aesthetic))
             {
                 p <- p + line_func(...)
-                if (!is.null(ip))
-                {
-                    ip <- ip + line_func(...)
-                }
             } else
             {
                 p <- p + line_func(color = "black", ...)
-                if (!is.null(ip))
-                {
-                    ip <- ip + line_func(color = "black", ...)
-                }
             }
             p <- p + scale_y_continuous("", labels = comma)
-            if (!is.null(ip))
-            {
-                ip <- ip + scale_y_continuous("", labels = comma)
-            }
             p <- p + expand_limits(y = 0)
-            if (!is.null(ip))
-            {
-                ip <- ip + expand_limits(y = 0)
-            }
             if (!missing(data) && nrow(dataset) > 0)
             {
                 if ("color" %in% names(extra.aes))
                 {
                     p <- p + geom_point(data = dataset)
-                    if (!is.null(ip))
-                    {
-                        ip <- ip +
-                            geom_point(data = dataset,
-                                       aes_string(color = extra.aes[["color"]]))
-                    }
                 } else
                 {
                     p <- p + geom_point(data = dataset, color = data.colour, size = 2)
-                    if (!is.null(ip))
-                    {
-                        ip <- ip + geom_point(data = dataset, color = data.colour, size = 2)
-                    }
                 }
             }
             p <- p + theme(axis.text.x = element_text(angle = 45, hjust = 1),
                            legend.position = "top")
-            if (!is.null(ip))
-            {
-                ip <- ip + theme(axis.text.x = element_text(angle = 45, hjust = 1),
-                                 legend.position = "top")
-            }
             if (!missing(date.origin))
             {
                 p <- p + scale_x_date("")
-                if (!is.null(ip))
-                {
-                    ip <- ip + scale_x_date("")
-                }
             }
         }
     }
@@ -478,7 +409,7 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
                 values[, iteration := 1]
             }
 
-            for (wo in setdiff(param.wo, "np"))
+            for (wo in setdiff(param.wo, "iteration"))
             {
                 values[, paste(wo) := "n/a"]
             }
@@ -657,7 +588,34 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
             values <- res[[noise]]
             values[!is.finite(value), value := 0]
 
-            by.sum <- "nr"
+            if (time.dim %in% colnames(values))
+            {
+                if (!missing(date.origin))
+                {
+                    if (date.unit == "day")
+                    {
+                        values[, time := date.origin + get(time.dim)]
+                        values[, time_next := time + 1]
+                    } else if (date.unit == "week")
+                    {
+                        values[, time := date.origin + get(time.dim) * 7]
+                        values[, time_next := time + 7]
+                    } else if (date.unit == "month")
+                    {
+                        values[, time := date.origin %m+% months(as.integer(get(time.dim)))]
+                        values[, time_next := time %m+% months(1)]
+                    } else if (date.unit == "year")
+                    {
+                        values[, time := date.origin + years(as.integer(get(time.dim)))]
+                        values[, time_next := time %m+% months(12)]
+                    }
+                } else {
+                    values[, time := get(time.dim)]
+                    values[, time_next := time + 1]
+                }
+            }
+
+            by.sum <- c("nr", "time", "time_next")
             if (!is.null(extra.aes))
             {
                 by.sum <- c(by.sum, unique(unname(extra.aes)))
@@ -688,8 +646,7 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
             {
                 values[, paste(wo) := "n/a"]
             }
-            values <- merge(values, times, by = "nr")
-            values[, nr := NULL]
+            values[, paste(time.dim) := NULL]
             ndt <- rbind(ndt,
                          data.table(noise = rep(noise, nrow(values)),
                                     values))
@@ -702,7 +659,7 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
             }
 
             ret_data <- c(ret_data, list(noises = ndt))
-            
+
             aesthetic <- list(x = "time", y = "value")
             if (length(extra.aes) > 0)
             {
@@ -811,10 +768,9 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
                                       xintercept = id)
             }
         }
-    } 
+    }
 
     return(list(states = p,
-                incidence = ip,
                 densities = dp,
                 trace = tp,
                 correlations = cp,
@@ -822,4 +778,3 @@ plot_libbi_results <- function(res, states = "all", params = "all", noises = "al
                 likelihoods = lp,
                 data = ret_data))
 }
-
