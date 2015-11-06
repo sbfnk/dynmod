@@ -4,7 +4,7 @@
 \alias{plot.sampled.run}
 \title{Plot a sampled run and data}
 \usage{
-\method{plot}{sampled.run}(theta, data, init.sample, time.column = "time",
+plot.sampled.run(theta, data, init.sample, time.column = "time",
   fixed.parameters = NULL, sample.obs = NULL, ...)
 }
 \arguments{

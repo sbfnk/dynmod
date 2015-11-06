@@ -5,9 +5,10 @@
 \title{Plot all results from a libbi output file}
 \usage{
 plot_libbi_results(res, states = "all", params = "all", noises = "all",
-  quantile.span = c(0.5, 0.95), date.origin, date.unit = "day", data, id,
-  extra.aes = c(), all.times = FALSE, hline, burn, thin, steps = FALSE,
-  select, shift, data.colour = "red", base.alpha = 0.5, ...)
+  quantile.span = c(0.5, 0.95), date.origin, date.unit = "day",
+  time.dim = "nr", data, id, extra.aes = c(), all.times = FALSE, hline,
+  burn, thin, steps = FALSE, select, shift, data.colour = "red",
+  base.alpha = 0.5, ...)
 }
 \arguments{
 \item{res}{result of bi_read_file}
@@ -24,6 +25,8 @@ plot_libbi_results(res, states = "all", params = "all", noises = "all",
 
 \item{date.unit}{unit of date}
 
+\item{time.dim}{time dimension ("nr" by default)}
+
 \item{data}{data (with a "date" and "value" column)}
 
 \item{id}{one or more run ids to plot}
@@ -32,7 +35,7 @@ plot_libbi_results(res, states = "all", params = "all", noises = "all",
 
 \item{all.times}{whether to plot all times (not only ones with data)}
 
-\item{hline}{horizontal marker lines, named list in format (state = value)}
+\item{hline}{horizontal marker lines, named vector in format (state = value)}
 
 \item{burn}{How many runs to burn}
 
@@ -45,6 +48,8 @@ plot_libbi_results(res, states = "all", params = "all", noises = "all",
 \item{shift}{list of dimensions to be shifted, and by how much}
 
 \item{data.colour}{colour for plotting the data}
+
+\item{base.alpha}{}
 
 \item{...}{options for geom_step / geom_line}
 }

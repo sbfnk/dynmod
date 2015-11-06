@@ -23,6 +23,7 @@
 ##' @param ... options for geom_step / geom_line
 ##' @return list of results
 ##' @import data.table ggthemr ggplot2 lubridate scales truncnorm reshape2
+##' @export
 ##' @author Sebastian Funk
 plot_libbi_results <- function(res, states = "all", params = "all", noises = "all",
                                quantile.span = c(0.5, 0.95),

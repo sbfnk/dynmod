@@ -4,7 +4,7 @@
 \alias{plot.model.data}
 \title{Plot a model and data}
 \usage{
-\method{plot}{model.data}(parameters, data, init, time.column = "time",
+plot.model.data(parameters, data, init, time.column = "time",
   sample.obs = NULL, traj = FALSE)
 }
 \arguments{
