@@ -159,8 +159,9 @@ estimate.immunity.mmr <- function(vaccine.efficacy = 0.9,
                    age = rep(seq(1, max.age), times = max.year - min.year + 1),
                    vaccination = vaccination.cohorts)
     immunity.estimate <- immunity.estimate[, lower.age.limit := age - 1]
-    immunity.estimate <- reduce.agegroups(immunity.estimate,
-                                          limits = age.limits)
+    immunity.estimate[, lower.age.limit :=
+                            reduce.agegroups(lower.age.limit,
+                                             limits = age.limits)]
     immunity.estimate <- immunity.estimate[, list(vaccination = mean(vaccination)),
                                            by = list(year, lower.age.limit)]
 
@@ -267,8 +268,10 @@ cpx.age.wallinga <- function(...) {
     participants <- polymod$participants[country == "GB"]
     contacts <- polymod$contacts[country == "GB"]
 
-    ages <- reduce.agegroups(pop.ew.age[year == 2006],
-                             unique(cpx.ew.age[, lower.age.limit]))
+    ages <- pop.ew.age[year == 2006]
+    ages[, lower.age.limit :=
+               reduce.agegroups(lower.age.limit,
+                                unique(cpx.ew.age[, lower.age.limit]))]
     ages <- ages[, list(population = sum(population)), by = lower.age.limit]
 
     cpx.annual <- cpx.ew.age[, list(number.cases = sum(abs.incidence),
@@ -306,8 +309,10 @@ ms.age.structure.wallinga <- function(...) {
     participants <- polymod$participants[country == "GB"]
     contacts <- polymod$contacts[country == "GB"]
 
-    ages <- reduce.agegroups(pop.ew.age[year == 2006],
-                             unique(ms.ew.age[, lower.age.limit]))
+    ages <- pop.ew.age[year == 2006]
+    ages[, lower.age.limit :=
+               reduce.agegroups(lower.age.limit,
+                                unique(ms.ew.age[, lower.age.limit]))]
     ages <- ages[, list(population = sum(population)), by = lower.age.limit]
 
     ms.target <- ms.ew.age[, list(number.cases = sum(abs.incidence),
@@ -355,7 +360,8 @@ backcalc.population <- function(nyears = 1, lower.age.limits = NULL) {
     }
 
     ## reduce population to given age groups
-    pop.ew.age <- reduce.agegroups(pop.ew.age, lower.age.limits)
+    pop.ew.age[, lower.age.limit :=
+                     reduce.agegroups(lower.age.limit, lower.age.limits)]
     pop.ew.age <- pop.ew.age[, list(population = sum(population)),
                              by = list(year, lower.age.limit)]
 
@@ -457,7 +463,8 @@ cpx.init <- function(parameters) {
 
     lower.limits <- agegroups.to.limits(colnames(parameters[["mixing"]]))
 
-    cpx.ew.age <- reduce.agegroups(cpx.ew.age, lower.limits)
+    cpx.ew.age[, lower.age.limit := reduce.agegroups(lower.age.limit,
+                                                     lower.limits)]
     min.year <- cpx.ew.age[, min(year)]
     cpx.init.infected <-
         cpx.ew.age[year == min.year,
@@ -543,7 +550,8 @@ ms.init <- function(parameters) {
 
     lower.limits <- agegroups.to.limits(colnames(parameters[["mixing"]]))
 
-    ms.ew.age <- reduce.agegroups(ms.ew.age, lower.limits)
+    ms.ew.age[, lower.age.limit :=
+                    reduce.agegroups(lower.age.limit, lower.limits)]
     ms.ew.age <- ms.ew.age[, list(abs.incidence = sum(abs.incidence),
                                   population = sum(population)),
                            by = list(year, lower.age.limit)]
@@ -717,7 +725,8 @@ sample.cpx.init <- function(parameters) {
     first.pop.state <- cpx.ew.age[year == min.year,
                                   list(population = mean(population)),
                                   by = lower.age.limit]
-    first.pop.state <- reduce.agegroups(first.pop.state, lower.limits)
+    first.pop.state[, lower.age.limit :=
+                          reduce.agegroups(lower.age.limit, lower.limits)]
     first.pop.state <- first.pop.state[, list(population = sum(population)),
                                        by = lower.age.limit]
 
@@ -954,7 +963,8 @@ sample.ms.init <- function(parameters) {
     first.pop.state <- ms.ew.age[year == min.year,
                                  list(population = mean(population)),
                                  by = lower.age.limit]
-    first.pop.state <- reduce.agegroups(first.pop.state, lower.limits)
+    first.pop.state[, lower.age.limit :=
+                           reduce.agegroups(lower.age.limit, lower.limits)]
     first.pop.state <- first.pop.state[, list(population = sum(population)),
                                        by = lower.age.limit]
 
@@ -969,8 +979,8 @@ sample.ms.init <- function(parameters) {
         rbind(data.table(age = 0, immunity = maternal.immunity),
               ms.sero.fine)
     setnames(first.serology, "age", "lower.age.limit")
-    first.serology <-
-        reduce.agegroups(first.serology, lower.limits)
+    first.serology[, lower.age.limit :=
+                         reduce.agegroups(lower.age.limit, lower.limits)]
     first.serology <-
         first.serology[, list(immunity = mean(immunity)), by = lower.age.limit]
 
@@ -1097,8 +1107,9 @@ age.likelihood <- function(trajectory, data.cases, data.sero = NULL, rel = F,
         data.cases[, abs.incidence := rel.incidence * population]
     }
 
-    trajectory <-
-        reduce.agegroups(trajectory, unique(data.cases[, lower.age.limit]))
+    trajectory[, lower.age.limit :=
+                     reduce.agegroups(lower.age.limit,
+                                      unique(data.cases[, lower.age.limit]))]
     trajectory[, list(abs.incidence = sum(abs.incidence)),
                by = list(get(time.column), lower.age.limit)]
 
@@ -1384,8 +1395,8 @@ fit.measles.wallinga <- function(years = NULL, contact.matrix = NULL) {
         years <- unique(ms.ew.age[, year])
     }
 
-    ms.ew.age <-
-        reduce.agegroups(ms.ew.age, age.groups, column = "lower.age.limit")
+    ms.ew.age[, lower.age.limit :=
+                    reduce.agegroups(lower.age.limit, age.groups)]
     ms.ew.age <- ms.ew.age[, list(abs.incidence = sum(abs.incidence),
                                   population = sum(population)),
                            by = list(year, lower.age.limit)]
@@ -1483,7 +1494,8 @@ age.distribution <- function(contact.matrix, R0, vaccination = NULL, years = NUL
     if (is.null(age.years)) {
         age.years <- 2006
     }
-    ages <- reduce.agegroups(pop.ew.age[year %in% age.years], agegroups)
+    ages <- pop.ew.age[year %in% age.years]
+    ages[, lower.age.limit := reduce.agegroups(lower.age.limit, agegroups)]
     if (is.null(years)) {
         ages <- ages[, list(population = sum(population)), by = lower.age.limit]
     } else {

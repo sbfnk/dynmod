@@ -3,18 +3,12 @@
 ##' Reduce the number of age groups given a broader set of limtis
 ##'
 ##' Operates on lower limits
-##' @param x data table in which to reduce age groups
+##' @param x vector of limits
 ##' @param limits new limits
-##' @param column column in x that denotes age
-##' @return data table with updated age groups
+##' @return vector with the new agegroups
 ##' @export
-reduce.agegroups <- function(x, limits, column = "lower.age.limit") {
-
-    x <- x[, new.agegroup := limits[findInterval(x[, get(column)], limits)]]
-    x <- x[, paste(column) := NULL]
-    setnames(x, "new.agegroup", column)
-
-    x
+reduce.agegroups <- function(x, limits) {
+    return(limits[findInterval(x, limits)])
 }
 
 ##' Convert lower age limits to age groups.

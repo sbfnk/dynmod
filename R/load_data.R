@@ -839,8 +839,9 @@ loadPopulationEWAge <- function(path, mult.factor = 1000) {
         pop.ew.age.2[, lower.age.limit := as.integer(as.character(lower.age.limit))]
     pop.ew.age.2 <- pop.ew.age.2[, population := as.integer(mult.factor * population)]
 
-    pop.ew.age.2 <-
-        reduce.agegroups(pop.ew.age.2, unique(pop.ew.age[, lower.age.limit]))
+    pop.ew.age.2[, lower.age.limit := 
+                     reduce.agegroups(lower.age.limit,
+                                      unique(pop.ew.age[, lower.age.limit]))]
     pop.ew.age.2 <- pop.ew.age.2[, list(population = sum(population)),
                                  by = list(year, lower.age.limit)]
 
@@ -1209,6 +1210,11 @@ loadRVCVaccinationData <- function(path)
     save(rvc.measles, file = "rvc.RData")
 }
 
+##' Load worldwide serology data
+##'
+##' @param path Path in which to find the raw data
+##' @import XLConnect reshape2
+##' @author Sebastian Funk
 loadWorldPopulationProspectData <- function(path)
 {
     try_require("XLConnect")
@@ -1255,3 +1261,24 @@ loadWorldPopulationProspectData <- function(path)
     
     save(wpp, file = "wpp.RData")
 }
+
+##' Load Childcare data
+##'
+##' @param path Path in which to find the raw data
+##' @author Sebastian Funk
+loadChickenpoxSerology <- function(path) {
+
+    childcare_raw <-
+        data.table(read.csv(paste(path, "/childcare.csv", sep = "")))
+    years <- seq(ceiling(min(childcare$year)), floor(max(childcare$year)))
+
+    approx_childcare <- approx(childcare$year, childcare$childcare, years)
+    childcare <- data.table(year = approx_childcare$x,
+                            childcare = approx_childcare$y)
+
+    setkey(childcare, year)
+
+    save(childcare, file = "childcare.RData")
+
+}
+

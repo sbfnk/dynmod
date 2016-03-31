@@ -222,7 +222,8 @@ sample.polymod <- function(age.limits, countries = NULL, mixing.pop = NULL, norm
           }
     }
 
-    ages <- reduce.agegroups(mixing.pop, age.limits)
+    ages <- mixing.pop
+    ages[, lower.age.limit := reduce.agegroups(lower.age.limit, age.limits)
     ages <- ages[, list(population = sum(population)), by = lower.age.limit]
 
     m <- sample.contacts.and.matrix(polymod$participants[country %in% countries],
@@ -548,7 +549,8 @@ homogeneous.mixing.matrix <- function(contact.matrix) {
         as.integer(gsub("^\\[([0-9]*),[0-9]*\\)", "\\1", colnames(contact.matrix)))
 
     ## get populations by age group
-    ages <- reduce.agegroups(pop.ew.age[year == 2006], agegroups)
+    ages <- pop.ew.age[year == 2006]
+    ages[, lower.age.limit := reduce.agegroups(lower.age.limit, agegroups)]
     ages <- ages[, list(population = sum(population)), by = lower.age.limit]
 
     hom.matrix <-

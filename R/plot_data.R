@@ -7,13 +7,20 @@ plotMeaslesEWData <- function(ext = NA) {
 
     data(ms_ew_age)
 
+    ms.ew.age[lower.age.limit == 0, age.midpoint := 0.5]
+    ms.ew.age[lower.age.limit == 1, age.midpoint := 3]
+    ms.ew.age[lower.age.limit == 5, age.midpoint := 2.5]
+    ms.ew.age[lower.age.limit == 10, age.midpoint := 7.5]
+    ms.ew.age[lower.age.limit == 15, age.midpoint := 20]
+
     ms.ages <-
-      ms.ew.age[, list(mean = wtd.mean(lower.age.limit, abs.incidence),
-                       low = wtd.quantile(lower.age.limit, abs.incidence,
+        ms.ew.age[lower.age.limit < 25,
+                  list(mean = wtd.mean(age.midpoint, abs.incidence),
+                       low = wtd.quantile(age.midpoint, abs.incidence,
                          c(0.1)),
-                       high = wtd.quantile(lower.age.limit, abs.incidence,
+                       high = wtd.quantile(age.midpoint, abs.incidence,
                          c(0.9)),
-                       sd = sqrt(wtd.var(lower.age.limit, abs.incidence))),
+                       sd = sqrt(wtd.var(age.midpoint, abs.incidence))),
                 by = year]
     ms.ages.m <- melt(ms.ages, measure.vars = c("mean", "sd"))
     p <- ggplot(ms.ages.m, aes(x = year, y = value, color = variable))
@@ -27,11 +34,14 @@ plotMeaslesEWData <- function(ext = NA) {
     p <- p + theme(legend.position = "bottom")
     p <- p + ggtitle("Measles")
     p <- p + geom_vline(xintercept=1997.5)
+    
     if (is.na(ext)) {
         p
     } else {
         ggsave(paste("measles_annual_meanage.", ext, sep = ""), p)
     }
+
+    
 
     p <- ggplot(ms.ew.age, aes(x = year, y = rel.incidence,
                                colour = factor(lower.age.limit)))
@@ -971,8 +981,9 @@ plotDemographicEWData <- function(ext = NA) {
     data(pop_ew_age)
     data(cpx_ew_age)
 
-    pop.ew.age <-
-        reduce.agegroups(pop.ew.age, unique(cpx.ew.age[, lower.age.limit]))
+  pop.ew.age[, lower.age.limit := 
+                 reduce.agegroups(lower.age.limit,
+                                  unique(cpx.ew.age[, lower.age.limit]))]
 
     p <- ggplot(pop.ew.age, aes(x = year, fill = factor(lower.age.limit),
                                 y = population))
@@ -1021,7 +1032,7 @@ plotDemographicEWData <- function(ext = NA) {
 ##'
 ##' @param ext plot extensions
 ##' @param classic.life.expectancy life expectancy in the "classic" model
-##' @param kids.mult mixing multiplier for children
+##' E@param kids.mult mixing multiplier for children
 ##' @param max.age maximum age
 ##' @author Sebastian Funk
 ##' @import ggplot2 reshape2 Hmisc cowplot
@@ -1062,7 +1073,8 @@ plot_mixing_vacc_ages <- function(ext = NA, classic.life.expectancy = 80,
         diagonal.age.dist[, upper.age.limit :=
                          lower.to.upper.limits(lower.age.limit, lower.limits, max.age)]
 
-    cpx.ew.age <- reduce.agegroups(cpx.ew.age, lower.limits)
+    cpx.ew.age[, lower.age.limit :=
+                   reduce.agegroups(lower.age.limit, lower.limits)]
     cpx.ew.age <-
         cpx.ew.age[, upper.age.limit :=
                        lower.to.upper.limits(lower.age.limit, lower.limits,
@@ -1080,7 +1092,8 @@ plot_mixing_vacc_ages <- function(ext = NA, classic.life.expectancy = 80,
                                  upper.age.limit = mean(upper.age.limit)),
                           by = list(lower.age.limit)]
 
-    ms.ew.age <- reduce.agegroups(ms.ew.age, lower.limits)
+    ms.ew.age[, lower.age.limit :=
+                  reduce.agegroups(lower.age.limit, lower.limits)]
     ms.ew.age <-
         ms.ew.age[, upper.age.limit :=
                       lower.to.upper.limits(lower.age.limit, lower.limits,
@@ -1446,6 +1459,22 @@ plot_mixing_vacc_ages <- function(ext = NA, classic.life.expectancy = 80,
         ggsave(paste("prop_cases_ms_vacc_dynamic", ext, sep = "."), p, width = 9)
     }
 
+    p <- ggplot(dynamic.vacc.all[infection == "measles"],
+                aes(x = time, y = proportion.cases,
+                    color = factor(lower.age.limit)))
+    p <- p + geom_line(lwd = 1.2)
+    p <- p + theme_bw(16)
+    p <- p + theme(legend.position = "bottom")
+    p <- p + scale_y_continuous("mean age of infection")
+    p <- p + scale_x_continuous("years")
+    p <- p + facet_grid(uptake ~ mixing)
+
+    if (is.na(ext)) {
+        p
+    } else {
+        ggsave(paste("meanage_ms_vacc_dynamic", ext, sep = "."), p, width = 9)
+    }
+
     p <- ggplot(dynamic.vacc.all[infection == "chickenpox"],
                 aes(x = time, y = proportion.cases,
                     color = factor(lower.age.limit)))
@@ -1500,7 +1529,9 @@ plot_mixing_vacc_ages <- function(ext = NA, classic.life.expectancy = 80,
         pop.ew.age <- rbind(m.previous.pop, pop.ew.age)
     }
 
-    pop.ew.age <- reduce.agegroups(pop.ew.age, unique(ms.ew.age[, lower.age.limit]))
+    pop.ew.age[, lower.age.limit :=
+                   reduce.agegroups(lower.age.limit,
+                                    unique(ms.ew.age[, lower.age.limit]))]
     pop.ew.age <- pop.ew.age[, list(population = sum(population)),
                              by = list(year, lower.age.limit)]
     setkey(pop.ew.age, year, lower.age.limit)
