@@ -223,7 +223,7 @@ sample.polymod <- function(age.limits, countries = NULL, mixing.pop = NULL, norm
     }
 
     ages <- mixing.pop
-    ages[, lower.age.limit := reduce.agegroups(lower.age.limit, age.limits)
+    ages[, lower.age.limit := reduce.agegroups(lower.age.limit, age.limits)]
     ages <- ages[, list(population = sum(population)), by = lower.age.limit]
 
     m <- sample.contacts.and.matrix(polymod$participants[country %in% countries],
