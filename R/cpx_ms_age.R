@@ -707,7 +707,7 @@ cpx.init.prior <- function(init) {
 
 ##' Randomly sample initial conditions for chickenpox on the basis of serology
 ##'
-##' @param parameters
+##' @param parameters given (mixing) parameters
 ##' @return the proportion susceptible in each age group
 ##' @author Sebastian Funk
 sample.cpx.init <- function(parameters) {
@@ -783,7 +783,7 @@ sample.cpx.init <- function(parameters) {
 
 ##' Evaluate parameters under a prior distribution for chickenpox
 ##'
-##' @param parameters
+##' @param parameters parameters
 ##' @return prior probability density
 ##' @author Sebastian Funk
 ##' @export
@@ -949,7 +949,7 @@ sample.cpx.prior <- function(fixed.parameters = list()) {
 
 ##' Randomly sample initial conditions for measles on the basis of serology
 ##'
-##' @param parameters
+##' @param parameters given (maternal immunity and mixing) parameters
 ##' @return proportion susceptible in each age group
 ##' @author Sebastian Funk
 sample.ms.init <- function(parameters) {
@@ -1003,7 +1003,7 @@ sample.ms.init <- function(parameters) {
 
 ##' Evaluate parameters under a prior distribution for measles
 ##'
-##' @param parameters
+##' @param parameters parameters
 ##' @return prior probability density
 ##' @author Sebastian Funk
 ##' @export

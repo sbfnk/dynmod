@@ -6,12 +6,11 @@
 ##' @param value.column value column; if not given, will assume that dates are individual data per date (which will be added up)
 ##' @param start starting date
 ##' @param end end date
-##' @param ...
 ##' @import data.table
 ##' @export
 ##' @return A time series (\code{ts}) object
 ##' @author Sebastian Funk
-df_to_ts <- function(data, interval = "day", date.column = NULL, value.column = NULL, start = NULL, end = NULL, ...)
+df_to_ts <- function(data, interval = "day", date.column = NULL, value.column = NULL, start = NULL, end = NULL)
 {
 
     data <- data.table(data)

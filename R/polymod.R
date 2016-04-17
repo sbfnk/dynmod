@@ -290,10 +290,10 @@ polymod.epidemic.age.dist <- function(participants, contacts, ages, ...) {
 ##' Scan a range of q values
 ##'
 ##' Plots the results
-##' @param participants
-##' @param contacts
-##' @param ages
-##' @param child.mixing
+##' @param participants participants
+##' @param contacts contacts
+##' @param ages ages
+##' @param child.mixing mixing between under 5 year olds
 ##' @return a (ggplot) plot with the results
 ##' @author Sebastian Funk
 scan.age.dist <- function(participants, contacts, ages,
