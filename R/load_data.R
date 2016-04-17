@@ -936,27 +936,32 @@ loadPopulationWorldAge <- function(path) {
 ##'
 ##' @param path Path in which to find the raw data
 ##' @author Sebastian Funk
+##' @import openxlsx
 loadDemographicsEW <- function(path) {
 
-    births.ew <- data.table(read.csv(paste(path, "births_ew.csv", sep = "")))
-    setnames(births.ew, names(births.ew), tolower(names(births.ew)))
-    births.ew <- births.ew[, cbr := cbr1000 / 1000]
-    births.ew <- births.ew[, cbr1000 := NULL]
-    setkey(births.ew, year)
+    sheets <- list(births = "Live births", deaths = "Deaths")
+    for (sheet in names(sheets))
+    {
+        demo.ew <- read.xlsx(paste(path, "annualreferencetablesummer2015_tcm77-416007.xlsx", sep = "/"), sheet = sheets[[sheet]])
+        header_found <- FALSE
+        n <- 0
+        while (!header_found )
+        {
+            n <- n + 1
+            col <- grep("England and Wales", demo.ew[n, ])
+            if (length(col) > 0)
+            {
+                header_found <- TRUE
+            }
+        }
+        demo.ew <- demo.ew[seq(n + 1, nrow(demo.ew)), c(1, min(col))]
+        colnames(demo.ew) <- c("year", sheet)
+        demo.ew$year <- as.integer(demo.ew$year)
+        demo.ew[[sheet]] <- as.integer(demo.ew[[sheet]])
+        demo.ew <- demo.ew[!is.na(demo.ew$year), ]
 
-    save(births.ew, file = "births_ew.RData")
-
-    deaths.ew <- data.table(read.csv(paste(path, "deaths_ew.csv", sep = "")))
-    setnames(deaths.ew, names(deaths.ew), tolower(names(deaths.ew)))
-    deaths.ew <- deaths.ew[, cdr := cdr1000 / 1000]
-    deaths.ew <- deaths.ew[, cdr1000 := NULL]
-    deaths.ew <- deaths.ew[, infdr := infdr1000 / 1000]
-    deaths.ew <- deaths.ew[, infdr1000 := NULL]
-    deaths.ew <- deaths.ew[, neodr := neodr1000 / 1000]
-    deaths.ew <- deaths.ew[, neodr1000 := NULL]
-    setkey(deaths.ew, year)
-
-    save(deaths.ew, file = "deaths_ew.RData")
+        save(demo.ew, file = paste0(sheet, "_ew.RData"))
+    }
 }
 
 ##' Load POLYMOD data 
