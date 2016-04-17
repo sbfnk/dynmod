@@ -960,7 +960,10 @@ loadDemographicsEW <- function(path) {
         demo.ew[[sheet]] <- as.integer(demo.ew[[sheet]])
         demo.ew <- demo.ew[!is.na(demo.ew$year), ]
 
-        save(demo.ew, file = paste0(sheet, "_ew.RData"))
+        var_name <- paste(sheet, "ew", sep = ".")
+        assign(var_name, demo.ew)
+
+        save(var_name, file = paste0(sheet, "_ew.RData"))
     }
 }
 
