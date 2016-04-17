@@ -963,7 +963,7 @@ loadDemographicsEW <- function(path) {
         var_name <- paste(sheet, "ew", sep = ".")
         assign(var_name, demo.ew)
 
-        save(var_name, file = paste0(sheet, "_ew.RData"))
+        save(list = var_name, file = paste0(sheet, "_ew.RData"))
     }
 }
 

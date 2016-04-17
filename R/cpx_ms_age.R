@@ -370,7 +370,7 @@ backcalc.population <- function(nyears = 1, lower.age.limits = NULL) {
     agewidths <- diff(lower.age.limits)
 
     pop.times <- seq(0, nyears)
-    pop.parameters <- list(births = rep(births.ew[year == 1971, total], nyears + 1),
+    pop.parameters <- list(births = rep(births.ew[year == 1971, births], nyears + 1),
                            deaths = rep(deaths.ew[year == 1971, deaths], nyears + 1),
                            agewidths = agewidths,
                            reverse = T)
@@ -413,7 +413,7 @@ ew.pop.parameters <- function(age.limits, year.limits = NULL, interpolate = FALS
 
     parameters <- list()
     parameters[["births"]] <-
-        births.ew[year >= min(year.limits) & year <= max(year.limits), total]
+        births.ew[year >= min(year.limits) & year <= max(year.limits), births]
     parameters[["deaths"]] <-
         deaths.ew[year >= min(year.limits) & year <= max(year.limits), deaths]
 
@@ -427,7 +427,7 @@ ew.pop.parameters <- function(age.limits, year.limits = NULL, interpolate = FALS
     {
         parameters[["births"]] <-
             data.frame(year = years,
-                       value = births.ew[year >= min(year.limits) & year <= max(year.limits), total])
+                       value = births.ew[year >= min(year.limits) & year <= max(year.limits), births])
         parameters[["deaths"]] <-
             data.frame(year = years,
                        value = deaths.ew[year >= min(year.limits) & year <= max(year.limits), deaths])
