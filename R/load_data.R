@@ -961,7 +961,7 @@ loadDemographicsEW <- function(path) {
         demo.ew <- demo.ew[!is.na(demo.ew$year), ]
 
         var_name <- paste(sheet, "ew", sep = ".")
-        assign(var_name, demo.ew)
+        assign(var_name, data.table(demo.ew))
 
         save(list = var_name, file = paste0(sheet, "_ew.RData"))
     }
