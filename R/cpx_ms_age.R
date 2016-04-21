@@ -404,7 +404,7 @@ ew.pop.parameters <- function(age.limits, year.limits = NULL, interpolate = FALS
     {
         year.limits <- intersect(births.ew[, year], deaths.ew[, year])
     }
-    
+
     if (interpolate)
     {
         year.limits[which.min(year.limits)] <- min(year.limits) - 1
@@ -426,15 +426,18 @@ ew.pop.parameters <- function(age.limits, year.limits = NULL, interpolate = FALS
     if (df)
     {
         parameters[["births"]] <-
-            data.frame(year = years,
+            data.table(year = years,
                        value = births.ew[year >= min(year.limits) & year <= max(year.limits), births])
         parameters[["deaths"]] <-
-            data.frame(year = years,
+            data.table(year = years,
                        value = deaths.ew[year >= min(year.limits) & year <= max(year.limits), deaths])
         parameters[["ageing"]] <-
-            data.frame(age = c(0, seq_along(parameters[["ageing"]])),
+            data.table(age = c(0, seq_along(parameters[["ageing"]])),
                        value = c(parameters[["ageing"]], 0))
 
+        setkey(parameters[["births"]], year)
+        setkey(parameters[["deaths"]], year)
+        setkey(parameters[["ageing"]], age)
     } else
     {
         parameters[["years"]] <- years
