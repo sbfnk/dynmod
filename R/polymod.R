@@ -22,7 +22,7 @@ sample.contact.matrix <- function(participants,
                                   symmetry = F)
 {
     ## clean participant data of age NAs
-    if (nrow(participants[is.na(get(part.age.column))]) > 0) {
+  if (nrow(participants[is.na(get(part.age.column))]) > 0) {
         warning("removing participants without age")
     }
     participants <- participants[!is.na(get(part.age.column))]
@@ -43,24 +43,9 @@ sample.contact.matrix <- function(participants,
     ## take a bootstrap sample from the participants
     part.sample <- participants[sample(nrow(participants), replace = T)]
 
-    ## function to assign a weight to each participant, to account for the
-    ## distribution of age groups among the UK population and weekend/weekday
+    ## assign weights to participants, to account for weekend/weekday
     ## variation
-    weight.func <- function(x) {
-        ##    current.agegroup <- which(names(uk.ages) == x["agegroup"])
-        ##    res <- uk.ages[current.agegroup] / participants.age[current.agegroup]
-        res <- 1
-        if (as.numeric(x["dayofweek"]) %in% 1:5) {
-            ## weekday
-            res <- res * 5 / nrow(part.sample[dayofweek %in% 1:5])
-        } else {
-            ## weekend
-            res <- res * 2 / nrow(part.sample[!(dayofweek %in% 1:5)])
-        }
-        res
-    }
 
-    ## assign the weights to participants
     part.sample[dayofweek %in% 1:5, weight := 5 / nrow(part.sample[dayofweek %in% 1:5])]
     part.sample[!(dayofweek %in% 1:5),
                 weight := 2 / nrow(part.sample[!(dayofweek %in% 1:5)])]
@@ -82,23 +67,23 @@ sample.contact.matrix <- function(participants,
 
     ## calculate weighted contact matrix
     weighted.matrix <- xtabs(data = contacts.sample,
-                             formula = weight ~ cnt.agegroup + agegroup)
+                             formula = weight ~ agegroup + cnt.agegroup)
     ## calculate normalisation vector
     norm.vector <- xtabs(data = part.sample, formula = weight ~ agegroup)
 
     ## normalise contact matrix
-    weighted.matrix <- t(apply(weighted.matrix, 1, function(x) { x / norm.vector} ))
+    weighted.matrix <- as.matrix(apply(weighted.matrix, 2, function(x) { x / norm.vector} ))
 
     ## get rid of name but preserve row and column names
-    cols <- colnames(weighted.matrix)
+    cols <- rownames(weighted.matrix)
     weighted.matrix <- unname(weighted.matrix)
 
-    if (symmetry) {
-        normalised.weighted.matrix <- t(apply(weighted.matrix, 1,
-                                              function(x) { x * ages$population }))
-        weighted.matrix <- t(apply(0.5 * (normalised.weighted.matrix +
+    if (symmetry & prod(dim(as.matrix(weighted.matrix))) > 1) {
+        normalised.weighted.matrix <- apply(weighted.matrix, 2,
+                                              function(x) { x * ages$population })
+        weighted.matrix <- apply(0.5 * (normalised.weighted.matrix +
                                               t(normalised.weighted.matrix)),
-                                   1, function(x) { x / ages$population }))
+                                   2, function(x) { x / ages$population })
     }
 
     rownames(weighted.matrix) <- cols
