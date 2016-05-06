@@ -32,7 +32,9 @@ limits.to.agegroups <- function(limits) {
     {
         agegroups <- c("all")
     }
-    return(agegroups)
+    agegroups <- factor(agegroups, levels = agegroups)
+    names(agegroups) <- unique.limits
+    return(agegroups[as.character(limits)])
 }
 
 ##' Convert age groups to lower age limits.
