@@ -1032,506 +1032,342 @@ plotDemographicEWData <- function(ext = NA) {
 ##'
 ##' @param ext plot extensions
 ##' @param classic.life.expectancy life expectancy in the "classic" model
-##' E@param kids.mult mixing multiplier for children
+##' @param kids.mult mixing multiplier for children
 ##' @param max.age maximum age
 ##' @author Sebastian Funk
-##' @import ggplot2 reshape2 Hmisc cowplot
+##' @import ggplot2 reshape2 Hmisc
 ##' @export
 plot_mixing_vacc_ages <- function(ext = NA, classic.life.expectancy = 80,
-                                   kids.mult = 5, max.age = 99) {
+                                  kids.mult = 5, max.age = 99)
+{
     data(pop_ew_age)
     data(cpx_ew_age)
     data(ms_ew_age)
     data(vaccine_ew)
     data(births_ew)
 
-    # set crude age limits
-    lower.limits <- c(0, 5, 15)
+    age_data <-
+      list(chickenpox =
+             list(limits = unique(cpx.ew.age[, lower.age.limit]),
+                  data = cpx.ew.age),
+           measles =
+             list(limits = setdiff(unique(ms.ew.age[, lower.age.limit]), 1),
+                  data = ms.ew.age))
+    vacc.age <- list()
+    R0 <- list()
 
-    ## first, chickenpox
-    contact.matrix <- sample.polymod(lower.limits, countries = "United Kingdom")$matrix
-    hom.matrix <- homogeneous.mixing.matrix(contact.matrix)
-    diagonal.matrix <- diag(diag(contact.matrix))
-    colnames(diagonal.matrix) <- colnames(contact.matrix)
-    rownames(diagonal.matrix) <- rownames(contact.matrix)
-
-    R0 <- c(1.01, 1.1, seq(1.5, 19.5, by = 0.5))
-
-    social.age.dist <- age.distribution(contact.matrix, R0 = R0)
-    hom.age.dist <- age.distribution(hom.matrix, R0 = R0)
-    diagonal.age.dist <- age.distribution(diagonal.matrix, R0 = R0)
-
-    social.age.dist <-
-        social.age.dist[, upper.age.limit :=
-                            lower.to.upper.limits(lower.age.limit, lower.limits,
-                                                  max.age)]
-    hom.age.dist <-
-        hom.age.dist[, upper.age.limit :=
-                         lower.to.upper.limits(lower.age.limit, lower.limits, max.age)]
-
-    diagonal.age.dist <-
-        diagonal.age.dist[, upper.age.limit :=
-                         lower.to.upper.limits(lower.age.limit, lower.limits, max.age)]
-
-    cpx.ew.age[, lower.age.limit :=
-                   reduce.agegroups(lower.age.limit, lower.limits)]
-    cpx.ew.age <-
-        cpx.ew.age[, upper.age.limit :=
-                       lower.to.upper.limits(lower.age.limit, lower.limits,
-                                             max.age)]
-    cpx.ew.age <- cpx.ew.age[, list(abs.incidence = sum(abs.incidence),
-                                    upper.age.limit = mean(upper.age.limit),
-                                    population = sum(population)),
-                             by = list(year, week, lower.age.limit)]
-    cpx.ew.age.annual <- cpx.ew.age[, list(abs.incidence = sum(abs.incidence),
-                                           upper.age.limit = mean(upper.age.limit),
-                                           population = mean(population)),
-                                    by = list(year, lower.age.limit)]
-    cpx.ew.age.all <-
-        cpx.ew.age.annual[, list(abs.incidence = sum(abs.incidence),
-                                 upper.age.limit = mean(upper.age.limit)),
-                          by = list(lower.age.limit)]
-
-    ms.ew.age[, lower.age.limit :=
-                  reduce.agegroups(lower.age.limit, lower.limits)]
-    ms.ew.age <-
-        ms.ew.age[, upper.age.limit :=
-                      lower.to.upper.limits(lower.age.limit, lower.limits,
-                                             max.age)]
-    ms.ew.age.annual <- ms.ew.age[, list(abs.incidence = sum(abs.incidence),
-                                  upper.age.limit = mean(upper.age.limit),
-                                  population = sum(population)),
-                                  by = list(year, lower.age.limit)]
-    ms.ew.age.all <-
-        ms.ew.age.annual[, list(abs.incidence = sum(abs.incidence),
-                                upper.age.limit = mean(upper.age.limit)),
-                         by = list(lower.age.limit)]
-
-    
-    ## mean age at infection
-    meanage.hom <-
-        hom.age.dist[, list(low.mean.age = sum(proportion.cases * lower.age.limit),
-                            high.mean.age = sum(proportion.cases * upper.age.limit)),
-                     by = list(R0)]
-    meanage.classic <-
-        data.table(R0 = meanage.hom[, R0],
-                   low.mean.age = classic.life.expectancy / (meanage.hom[, R0]),
-                   high.mean.age = classic.life.expectancy / (meanage.hom[, R0]))
-    meanage.social <-
-        social.age.dist[, list(low.mean.age = sum(proportion.cases *
-                                                         lower.age.limit),
-                                  high.mean.age = sum(proportion.cases *
-                                                          upper.age.limit)),
-                        by = list(R0)]
-    meanage.diagonal <- 
-        diagonal.age.dist[, list(low.mean.age = sum(proportion.cases *
-                                                         lower.age.limit),
-                                  high.mean.age = sum(proportion.cases *
-                                                          upper.age.limit)),
-                        by = list(R0)]
-    
-
-    meanage.classic <- meanage.classic[, model := "classic"]
-    meanage.hom <- meanage.hom[, model := "homogeneous"]
-    meanage.social <- meanage.social[, model := "social"]
-    meanage.diagonal <- meanage.diagonal[, model := "diagonal"]
-    meanage <- rbind(meanage.classic, meanage.hom, meanage.social, meanage.diagonal)
-    meanage <- meanage[, mean.mean.age := (low.mean.age + high.mean.age) / 2]
-
-    meanage.data.cpx <-
-        (cpx.ew.age.all[, wtd.mean(lower.age.limit, abs.incidence)] +
-             cpx.ew.age.all[, wtd.mean(upper.age.limit, abs.incidence)]) / 2
-    meanage.data.ms <-
-        (ms.ew.age.all[, wtd.mean(lower.age.limit, abs.incidence)] +
-             ms.ew.age.all[, wtd.mean(upper.age.limit, abs.incidence)]) / 2
-
-    p <- ggplot(meanage, aes(x = R0, ymin = low.mean.age, y = mean.mean.age, 
-                             ymax = high.mean.age, color = model, fill = model))
-    p <- p + geom_line(lwd = 1.2)
-    p <- p + geom_hline(yintercept = meanage.data.cpx, lwd = 1.2, color = "black")
-    p <- p + geom_hline(yintercept = meanage.data.ms, lwd = 1.2, color = "black",
-                        linetype = 2)
-    p <- p + theme_bw(20)
-    p <- p + theme(legend.position = "bottom")
-    p <- p + scale_color_brewer("", palette = "Set1")
-    p <- p + scale_y_continuous("mean age at infection estimate")
-    p <- p + scale_x_continuous(expression(R[0]))
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("meanage_eq_model", ext, sep = "."), p, width = 9)
-        ## save_plot(paste("meanage_eq_model", ext, sep = "."), p)
-    }
-    p <- ggplot(meanage, aes(x = R0, ymin = low.mean.age, y = mean.mean.age, 
-                             ymax = high.mean.age, color = model, fill = model))
-    p <- p + geom_ribbon(alpha = 0.6, lwd = 1.2)
-    p <- p + geom_hline(yintercept = meanage.data.cpx, lwd = 1.2, color = "black")
-    p <- p + geom_hline(yintercept = meanage.data.ms, lwd = 1.2, color = "black",
-                        linetype = 2)
-    p <- p + theme_bw(20)
-    p <- p + theme(legend.position = "bottom")
-    p <- p + scale_color_brewer("", palette = "Set1")
-    p <- p + scale_fill_brewer("", palette = "Set1")
-    p <- p + scale_y_continuous("mean age at infection estimate")
-    p <- p + scale_x_continuous(expression(R[0]))
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("meanage_eq_model_ribbons", ext, sep = "."), p)
-    }
-
-    hom.age.dist <- hom.age.dist[, model := "homogeneous"]
-    social.age.dist <- social.age.dist[, model := "social"]
-    diagonal.age.dist <- diagonal.age.dist[, model := "diagonal"]
-
-    age.dist <- rbind(hom.age.dist, social.age.dist, diagonal.age.dist)
-    age.labels <- limits.to.agegroups(cpx.ew.age[, lower.age.limit])
-
-    p <- ggplot(age.dist, aes(x = R0, y = proportion.cases * 100,
-                                 color = factor(lower.age.limit)))
-    p <- p + geom_line(lwd = 1.2)
-    p <- p + theme_bw(20)
-    p <- p + theme(legend.position = "bottom")
-    p <- p + scale_color_brewer("Age group", palette = "Set1",
-                                labels = age.labels)
-    p <- p + facet_grid(model ~ ., scales = "free")
-    p <- p + scale_y_continuous("Proportion of cases (in %)", limits = c(0, 100))
-    p <- p + scale_x_continuous(expression(R[0]))
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("prop_cases_eq_model", ext, sep = "."), p, width = 9)
-        ## save_plot(paste("prop_cases_eq_model", ext, sep = "."), p)
-    }
-
-    cpx.ew.age.total <-
-        cpx.ew.age.annual[, list(abs.pop.incidence = sum(abs.incidence),
-                                abs.population = sum(population)),
-                         by = list(year)]
-    setkey(cpx.ew.age.annual, year)
-    setkey(cpx.ew.age.total, year)
-    cpx.ew.age.annual <- merge(cpx.ew.age.annual, cpx.ew.age.total, by = "year")
-    cpx.ew.age.annual <-
-        cpx.ew.age.annual[, proportion.cases := abs.incidence / abs.pop.incidence]
-    cpx.ew.age.annual[, infection := "chickenpox"]
-
-    ms.ew.age.total <-
-        ms.ew.age.annual[, list(abs.pop.incidence = sum(abs.incidence),
-                                abs.population = sum(population)),
-                         by = list(year)]
-    setkey(ms.ew.age.annual, year)
-    setkey(ms.ew.age.total, year)
-    ms.ew.age.annual <- merge(ms.ew.age.annual, ms.ew.age.total, by = "year")
-    ms.ew.age.annual <-
-        ms.ew.age.annual[, proportion.cases := abs.incidence / abs.pop.incidence]
-    ms.ew.age.annual[, infection := "measles"]
-
-    ch.ew.age.annual <- rbind(cpx.ew.age.annual, ms.ew.age.annual)
-
-    p <- ggplot(ch.ew.age.annual, aes(x = year, y = proportion.cases,
-                                      color = factor(lower.age.limit)))
-    p <- p + geom_line(lwd = 1.2)
-    p <- p + theme_bw(20)
-    p <- p + theme(legend.position = "bottom")
-    p <- p + scale_color_brewer("age group", palette = "Set1",
-                                labels = age.labels)
-    p <- p + facet_grid(infection ~ ., scales = "free")
-    p <- p + scale_y_continuous("proportion of cases", limits = c(0, 1))
-    p <- p + scale_x_continuous("")
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("prop_cases_data", ext, sep = "."), p, width = 9)
-    }
-
-    ## now, vaccination
-
-    vacc <- seq(from = 0, to = 0.95, by = 0.05)
-
-    ## 1) measles R0
-    R0.ms.diagonal <- approx(meanage[model == "diagonal", mean.mean.age],
-                           meanage[model == "diagonal", R0], meanage.data.ms)$y
-    R0.ms.social <- approx(meanage[model == "social", mean.mean.age],
-                           meanage[model == "social", R0], meanage.data.ms)$y
-    R0.ms.hom <- approx(meanage[model == "homogeneous", mean.mean.age],
-                        meanage[model == "homogeneous", R0], meanage.data.ms)$y
-    R0.ms.classic <- classic.life.expectancy / meanage.data.ms
-
-    ## 2) chickenpox R0
-    R0.cpx.diagonal <- approx(meanage[model == "diagonal", mean.mean.age],
-                           meanage[model == "diagonal", R0], meanage.data.cpx)$y
-    R0.cpx.social <- approx(meanage[model == "social", mean.mean.age],
-                           meanage[model == "social", R0], meanage.data.cpx)$y
-    R0.cpx.hom <- approx(meanage[model == "homogeneous", mean.mean.age],
-                        meanage[model == "homogeneous", R0], meanage.data.cpx)$y
-    R0.cpx.classic <- classic.life.expectancy / meanage.data.cpx
-
-    hom.ms.vacc <- rbindlist(lapply(vacc, function(x)
+    for (infection in names(age_data))
     {
-        age.distribution(hom.matrix, R0 = R0.ms.hom,
-                         vaccination = x)
-    }))
-    social.ms.vacc <- rbindlist(lapply(vacc, function(x)
-    {
-        age.distribution(contact.matrix, R0 = R0.ms.social,
-                         vaccination = x)
-    }))
-    diagonal.ms.vacc <- rbindlist(lapply(vacc, function(x)
-    {
-        age.distribution(diagonal.matrix, R0 = R0.ms.diagonal,
-                         vaccination = x)
-    }))
-    hom.cpx.vacc <- rbindlist(lapply(vacc, function(x)
-    {
-        age.distribution(hom.matrix, R0 = R0.cpx.hom,
-                         vaccination = x)
-    }))
-    social.cpx.vacc <- rbindlist(lapply(vacc, function(x)
-    {
-        age.distribution(contact.matrix, R0 = R0.cpx.social,
-                         vaccination = x)
-    }))
-    diagonal.cpx.vacc <- rbindlist(lapply(vacc, function(x)
-    {
-        age.distribution(diagonal.matrix, R0 = R0.cpx.diagonal,
-                         vaccination = x)
-    }))
+        R0[[infection]] <- list()
+        age.limits <- age_data[[infection]][["limits"]]
+        inf.data <- age_data[[infection]][["data"]]
 
-    hom.ms.vacc <- hom.ms.vacc[, mixing := "homogeneous"]
-    social.ms.vacc <- social.ms.vacc[, mixing := "social"]
-    diagonal.ms.vacc <- diagonal.ms.vacc[, mixing := "diagonal"]
+        data.ew.age <- copy(inf.data)
+        data.ew.age[, lower.age.limit :=
+                        reduce.agegroups(lower.age.limit, age.limits)]
+        data.ew.age <-
+            data.ew.age[, upper.age.limit :=
+                              lower.to.upper.limits(lower.age.limit,
+                                                    age.limits,
+                                                    max.age)]
+        by_cols <- intersect(c("year", "week", "lower.age.limit"),
+                             colnames(data.ew.age))
+        data.ew.age <- data.ew.age[, list(abs.incidence = sum(abs.incidence),
+                                          upper.age.limit =
+                                              mean(upper.age.limit),
+                                          population = sum(population)),
+                                   by = by_cols]
+        data.ew.age.annual <-
+            data.ew.age[, list(abs.incidence = sum(abs.incidence),
+                              upper.age.limit = mean(upper.age.limit),
+                              population = mean(population)),
+                       by = list(year, lower.age.limit)]
+        data.ew.age.all <-
+            data.ew.age.annual[, list(abs.incidence = sum(abs.incidence),
+                                      upper.age.limit =
+                                          mean(upper.age.limit)),
+                              by = list(lower.age.limit)]
 
-    hom.cpx.vacc <- hom.cpx.vacc[, mixing := "homogeneous"]
-    social.cpx.vacc <- social.cpx.vacc[, mixing := "social"]
-    diagonal.cpx.vacc <- diagonal.cpx.vacc[, mixing := "diagonal"]
+        contact.matrix.sample <-
+            sample.polymod(countries = "United Kingdom",
+                           age.limits = age.limits)
+        matrix <- list()
+        matrix[["social"]] <- contact.matrix.sample$matrix
+        matrix[["homogeneous"]] <- homogeneous.mixing.matrix(matrix[["social"]])
+        matrix[["diagonal"]] <- diag(diag(matrix[["social"]]))
+        colnames(matrix[["diagonal"]]) <- colnames(matrix[["social"]])
+        rownames(matrix[["diagonal"]]) <- rownames(matrix[["social"]])
 
-    ms.vacc <- rbind(hom.ms.vacc, social.ms.vacc, diagonal.ms.vacc)
-    cpx.vacc <- rbind(hom.cpx.vacc, social.cpx.vacc, diagonal.cpx.vacc)
+        R0.scale <- c(1.01, 1.1, seq(1.5, 19.5, by = 0.5))
 
-    ms.vacc[, infection := "measles"]
-    cpx.vacc[, infection := "chickenpox"]
+        age.dist <- list()
+        meanage <- list()
+        for (this.model in names(matrix))
+        {
+            age.dist[[this.model]] <-
+            age.distribution(matrix[[this.model]], R0 = R0.scale)
+            age.dist[[this.model]] <-
+                age.dist[[this.model]][, upper.age.limit :=
+                                             lower.to.upper.limits(lower.age.limit,
+                                                                   age.limits,
+                                                                   max.age)]
+          age.dist[[this.model]][, model := this.model]
+          meanage[[this.model]] <- 
+            age.dist[[this.model]][, list(low.mean.age = sum(proportion.cases * lower.age.limit),
+                                          high.mean.age = sum(proportion.cases * upper.age.limit)),
+                                   by = list(R0)]
+          meanage[[this.model]][, model := this.model]
+        }
 
-    vacc <- rbind(ms.vacc, cpx.vacc)
+        ## mean age at infection
+        meanage[["classic"]] <-
+          data.table(R0 = meanage[["homogeneous"]][, R0],
+                     low.mean.age = classic.life.expectancy /
+                       (meanage[["homogeneous"]][, R0]),
+                     high.mean.age = classic.life.expectancy /
+                       (meanage[["homogeneous"]][, R0]),
+                     model = "classic")
 
-    p <- ggplot(vacc, aes(x = vaccination, y = proportion.cases,
-                          color = factor(lower.age.limit)))
-    p <- p + geom_line(lwd = 1.2)
-    p <- p + theme_bw(20)
-    p <- p + theme(legend.position = "bottom")
-    p <- p + scale_color_brewer("age group", palette = "Set1",
-                                labels = age.labels)
-    p <- p + scale_y_continuous("proportion of cases", limits = c(0, 1))
-    p <- p + scale_x_continuous("vaccination coverage")
-    p <- p + facet_grid(infection ~ mixing)
+        meanage <- rbindlist(meanage)
+        meanage <-
+            meanage[, mean.mean.age := (low.mean.age + high.mean.age) / 2]
 
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("prop_cases_vacc", ext, sep = "."), p, width = 12)
-    }
+        meanage.data <-
+            (data.ew.age.all[, wtd.mean(lower.age.limit, abs.incidence)] +
+             data.ew.age.all[, wtd.mean(upper.age.limit, abs.incidence)]) / 2
 
-    dynamic.uptake <- c(0.1, 0.5, 0.8, 0.9, 0.95)
-    
-    fixed.parameters <- list(interpolate = F,
-                             runin.time = 0,
-                             mu = births.ew[year == 2010, total] /
-                                 sum(pop.ew.age[year == 2010, population]),
-                             maternal.immunity = 0,
-                             ageing = 1/diff(lower.limits))
-    vaccine.parameters <- list()
+        p <- ggplot(meanage, aes(x = R0, ymin = low.mean.age,
+                                 y = mean.mean.age,
+                                 ymax = high.mean.age, color = model,
+                                 fill = model))
+        p <- p + geom_line(lwd = 1.2)
+        p <- p + geom_hline(yintercept = meanage.data, lwd = 1.2,
+                            color = "black")
+        ## p <- p + theme_bw(20)
+        p <- p + theme(legend.position = "bottom")
+        p <- p + scale_color_brewer(palette = "Set1")
+        p <- p + scale_y_continuous("mean age at infection estimate")
+        p <- p + scale_x_continuous(expression(R[0]))
+        p <- p + ggtitle(infection)
+        if (is.na(ext)) {
+            p
+        } else {
+            ggsave(paste("meanage_eq_model", ext, sep = "."), p, width = 9)
+        }
+        p <- ggplot(meanage, aes(x = R0, ymin = low.mean.age,
+                                 y = mean.mean.age, ymax = high.mean.age,
+                                 color = model, fill = model))
+        p <- p + geom_ribbon(alpha = 0.6, lwd = 1.2)
+        p <- p + geom_hline(yintercept = meanage.data, lwd = 1.2, color = "black")
+        ## p <- p + theme_bw(20)
+        p <- p + theme(legend.position = "bottom")
+        p <- p + scale_color_brewer(palette = "Set1")
+        p <- p + scale_fill_brewer(palette = "Set1")
+        p <- p + scale_y_continuous("mean age at infection estimate")
+        p <- p + scale_x_continuous(expression(R[0]))
+        p <- p + ggtitle(infection)
+        if (is.na(ext)) {
+            p
+        } else {
+            ggsave(paste("meanage_eq_model_ribbons", ext, sep = "."), p,
+                   width = 9)
+        }
 
-    parameters.ms.social <- sample.ms.prior(c(fixed.parameters, list(R0 = R0.ms.social, mixing = contact.matrix)))
-    parameters.ms.hom <- sample.ms.prior(c(fixed.parameters, list(R0 = R0.ms.hom, mixing = hom.matrix)))
-    parameters.ms.diagonal <- sample.ms.prior(c(fixed.parameters, list(R0 = R0.ms.diagonal, mixing = diagonal.matrix)))
-    parameters.cpx.social <- sample.cpx.prior(c(fixed.parameters, list(R0 = R0.cpx.social, mixing = contact.matrix)))
-    parameters.cpx.hom <- sample.cpx.prior(c(fixed.parameters, list(R0 = R0.cpx.hom, mixing = hom.matrix)))
-    parameters.cpx.diagonal <- sample.cpx.prior(c(fixed.parameters, list(R0 = R0.cpx.diagonal, mixing = diagonal.matrix)))
+        age.dist <- rbindlist(age.dist)
+        age.labels <- limits.to.agegroups(age.limits)
 
-    l <- lapply(dynamic.uptake, function(x)
-    {
-        vaccine.parameters[["vaccine.uptake"]] <- matrix(c(rep(c(0, 0, 0), 10), c(x, 0, 0)),
-                                                         ncol = length(lower.limits), byrow = T)
-        
-        ## 1) Measles
-        ## first: social mixing
-        init <- ms.init(parameters.ms.social)
-        parameters <- c(parameters.ms.social, vaccine.parameters)
-        ms.social.traj <- runSIR(parameters = parameters,
-                                 init = init,
-                                 times = seq_len(50),
-                                 age.labels = lower.limits,
-                                 thickening = 10)
-        ms.social.traj[, mixing := "social"]
+        p <- ggplot(age.dist, aes(x = R0, y = proportion.cases,
+                                  color = factor(lower.age.limit)))
+        p <- p + geom_line(lwd = 1.2)
+        ## p <- p + theme_bw(20)
+        p <- p + theme(legend.position = "bottom")
+        p <- p + scale_color_brewer("age group", palette = "Set1",
+                                    labels = age.labels)
+        p <- p + facet_grid(model ~ ., scales = "free")
+        p <- p + scale_y_continuous("proportion of cases", limits = c(0, 1))
+        p <- p + scale_x_continuous(expression(R[0]))
+        p <- p + ggtitle(infection)
+        if (is.na(ext)) {
+            p
+        } else {
+            ggsave(paste("prop_cases_eq_model", ext, sep = "."), p, width = 9)
+        }
 
-        # second: homogeneous mixing
-        init <- ms.init(parameters.ms.hom)
-        parameters <- c(parameters.ms.hom, vaccine.parameters)
-        ms.hom.traj <- runSIR(parameters = parameters,
-                                 init = init,
-                                 times = seq_len(50),
-                                 age.labels = lower.limits,
-                                 thickening = 10)
-        ms.hom.traj[, mixing := "homogeneous"]
+        data.ew.age.total <-
+            data.ew.age.annual[, list(abs.pop.incidence = sum(abs.incidence),
+                                      abs.population = sum(population)),
+                               by = list(year)]
+        setkey(data.ew.age.annual, year)
+        setkey(data.ew.age.total, year)
+        data.ew.age.annual <- merge(data.ew.age.annual, data.ew.age.total,
+                                    by = "year")
+        data.ew.age.annual <-
+            data.ew.age.annual[, proportion.cases := abs.incidence /
+                                    abs.pop.incidence]
 
-        # third: diagonal mixing
-        init <- ms.init(parameters.ms.diagonal)
-        parameters <- c(parameters.ms.diagonal, vaccine.parameters)
-        ms.diag.traj <- runSIR(parameters = parameters,
-                               init = init,
-                               times = seq_len(50),
-                               age.labels = lower.limits,
-                               thickening = 10)
-        ms.diag.traj[, mixing := "diagonal"]
+        p <- ggplot(data.ew.age.annual, aes(x = year, y = proportion.cases,
+                                            color = factor(lower.age.limit)))
+        p <- p + geom_line(lwd = 1.2)
+        ## p <- p + theme_bw(20)
+        p <- p + theme(legend.position = "bottom")
+        p <- p + scale_color_brewer("age group", palette = "Set1",
+                                    labels = age.labels)
+        p <- p + scale_y_continuous("proportion of cases", limits = c(0, 1))
+        p <- p + scale_x_continuous("")
+        p <- p + ggtitle(infection)
+        if (is.na(ext)) {
+            p
+        } else {
+            ggsave(paste("prop_cases_data", ext, sep = "."), p, width = 9)
+        }
 
+        ## now, vaccination
 
-        # 1) Chickenpox
-        # first: social mixing
-        init <- cpx.init(parameters.cpx.social)
-        parameters <- c(parameters.cpx.social, vaccine.parameters)
-        cpx.social.traj <- runSIR(parameters = parameters, 
-                                 init = init,
-                                 times = seq_len(50),
-                                 age.labels = lower.limits,
-                                 thickening = 10)
-        cpx.social.traj[, mixing := "social"]
+        vacc <- seq(from = 0, to = 0.95, by = 0.05)
 
-        # second: homogeneous mixing
-        init <- cpx.init(parameters.cpx.hom)
-        parameters <- c(parameters.cpx.hom, vaccine.parameters)
-        cpx.hom.traj <- runSIR(parameters = parameters, 
-                                 init = init,
-                                 times = seq_len(50),
-                                 age.labels = lower.limits,
-                                 thickening = 10)
-        cpx.hom.traj[, mixing := "homogeneous"]
+        vacc.age.inf <- list()
 
-        # third: diagonal mixing
-        init <- cpx.init(parameters.cpx.diagonal)
-        parameters <- c(parameters.cpx.diagonal, vaccine.parameters)
-        cpx.diag.traj <- runSIR(parameters = parameters, 
-                                 init = init,
-                                 times = seq_len(50),
-                                 age.labels = lower.limits,
-                                 thickening = 10)
-        cpx.diag.traj[, mixing := "diagonal"]
+        R0[[infection]][["classic"]]<- classic.life.expectancy / meanage.data
 
+        for (this.model in names(matrix))
+        {
+          if (meanage.data < min(meanage[model == this.model, mean.mean.age]))
+          {
+            R0[[infection]][[this.model]] <-
+              min(meanage[model == this.model, mean.mean.age])
+          } else if (meanage.data >
+                     max(meanage[model == this.model, mean.mean.age]))
+          {
+            R0[[infection]][[this.model]] <-
+              max(meanage[model == this.model, mean.mean.age])
+          } else {
+            R0[[infection]][[this.model]] <-
+              approx(meanage[model == this.model, mean.mean.age],
+                     meanage[model == this.model, R0],
+                     meanage.data)$y
+          }
 
-        ms.traj <- rbind(ms.social.traj, ms.hom.traj, ms.diag.traj)
-        ms.traj[, infection := "measles"]
+          vacc.age.inf[[this.model]] <- rbindlist(lapply(vacc, function(x)
+          {
+            age.distribution(matrix[[this.model]], R0 = R0[[infection]][[this.model]],
+                             vaccination = x)
+          }))
+          vacc.age.inf[[this.model]][, mixing := this.model]
+        }
 
-        cpx.traj <- rbind(cpx.social.traj, cpx.hom.traj, cpx.diag.traj)
-        cpx.traj[, infection := "chickenpox"]
-        
-        dynamic.vacc <- rbind(ms.traj, cpx.traj)
-        dynamic.vacc <- dynamic.vacc[, uptake := x]
-    })
+        vacc.age[[infection]] <- rbindlist(vacc.age.inf)
+        vacc.age[[infection]][, infection := infection]
 
-    dynamic.vacc.all <- rbindlist(l)
-    dynamic.vacc.all <- dynamic.vacc.all[!is.na(abs.incidence)]
-    
-    dynamic.vacc.all.total <-
-        dynamic.vacc.all[, list(abs.pop.incidence = sum(abs.incidence, na.rm = T)),
-                         by = list(time, mixing, infection, uptake)]
-    dynamic.vacc.all.total <- dynamic.vacc.all.total[abs.pop.incidence > 0]
-                                
-    setkey(dynamic.vacc.all, time, mixing, infection, uptake)
-    setkey(dynamic.vacc.all.total, time, mixing, infection, uptake)
+        dynamic.uptake <- c(0.1, 0.5, 0.8, 0.9, 0.95)
 
-    dynamic.vacc.all <- merge(dynamic.vacc.all, dynamic.vacc.all.total, by = c("time", "mixing", "infection", "uptake"))
-    dynamic.vacc.all <-
-        dynamic.vacc.all[, proportion.cases := abs.incidence / abs.pop.incidence]
-    
-    p <- ggplot(dynamic.vacc.all[infection == "measles"],
+        fixed.parameters <- list(mixing = matrix[["social"]], 
+                                 interpolate = F,
+                                 runin.time = 100,
+                                 mu = births.ew[year == 2010, births] /
+                                   sum(pop.ew.age[year == 2010, population]),
+                                 maternal.immunity = 0,
+                                 ageing = 1/diff(age.limits))
+
+        l <- lapply(dynamic.uptake, function(x)
+        {
+          fixed.parameters[["vaccine.uptake"]] <- matrix(c(rep(rep(0, length(age.limits)), 10), c(x, rep(0, length(age.limits) - 1))), ncol = length(age.limits), byrow = T)
+
+          theta <- sample.prior(fixed.parameters, infection)
+
+          traj <- list()
+          for (this.model in names(matrix))
+          {
+            theta[["R0"]] <- R0[[infection]][[this.model]]
+
+            parameters <- c(theta, fixed.parameters)
+
+            init <- gen.init(parameters, infection)
+            traj[[this.model]] <- runSIR(parameters = parameters,
+                                         init = init,
+                                         times = seq_len(50),
+                                         age.labels = age.limits,
+                                         thickening = 10)
+            traj[[this.model]][, mixing := this.model]
+          }
+
+          traj <- rbindlist(traj)
+          traj[, infection := infection]
+          traj[, uptake := x]
+          return(traj)
+        })
+
+        dynamic.vacc.all <- rbindlist(l)
+
+        dynamic.vacc.all.total <-
+          dynamic.vacc.all[, list(abs.pop.incidence = sum(abs.incidence, na.rm = T)),
+                           by = list(time, mixing, infection, uptake)]
+        dynamic.vacc.all.total <- dynamic.vacc.all.total[abs.pop.incidence > 0]
+
+        setkey(dynamic.vacc.all, time, mixing, infection, uptake)
+        setkey(dynamic.vacc.all.total, time, mixing, infection, uptake)
+
+        dynamic.vacc.all <- merge(dynamic.vacc.all, dynamic.vacc.all.total, by = c("time", "mixing", "infection", "uptake"))
+        dynamic.vacc.all <-
+          dynamic.vacc.all[, proportion.cases := abs.incidence / abs.pop.incidence]
+
+        p <- ggplot(dynamic.vacc.all, 
                 aes(x = time, y = proportion.cases,
                     color = factor(lower.age.limit)))
-    p <- p + geom_line(lwd = 1.2)
-    p <- p + theme_bw(16)
-    p <- p + theme(legend.position = "bottom")
-    p <- p + scale_color_brewer("age group", palette = "Set1",
-                                labels = age.labels)
-    p <- p + scale_y_continuous("proportion of cases", limits = c(0, 1))
-    p <- p + scale_x_continuous("years")
-    p <- p + facet_grid(uptake ~ mixing)
+        p <- p + geom_line(lwd = 1.2)
+        ## p <- p + theme_bw(16)
+        p <- p + theme(legend.position = "bottom")
+        p <- p + scale_color_brewer("age group", palette = "Set1",
+                                    labels = age.labels)
+        p <- p + scale_y_continuous("proportion of cases", limits = c(0, 1))
+        p <- p + scale_x_continuous("time")
+        p <- p + facet_grid(uptake ~ mixing)
+        p <- p + ggtitle(infection)
 
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("prop_cases_ms_vacc_dynamic", ext, sep = "."), p, width = 9)
+        if (is.na(ext)) {
+          p
+        } else {
+          ggsave(paste0("prop_cases_", infection, "_vacc_dynamic.", ext), p, width = 9)
+        }
     }
 
-    p <- ggplot(dynamic.vacc.all[infection == "measles"],
-                aes(x = time, y = proportion.cases,
-                    color = factor(lower.age.limit)))
-    p <- p + geom_line(lwd = 1.2)
-    p <- p + theme_bw(16)
-    p <- p + theme(legend.position = "bottom")
-    p <- p + scale_y_continuous("mean age of infection")
-    p <- p + scale_x_continuous("years")
-    p <- p + facet_grid(uptake ~ mixing)
-
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("meanage_ms_vacc_dynamic", ext, sep = "."), p, width = 9)
-    }
-
-    p <- ggplot(dynamic.vacc.all[infection == "chickenpox"],
-                aes(x = time, y = proportion.cases,
-                    color = factor(lower.age.limit)))
-    p <- p + geom_line(lwd = 1.2)
-    p <- p + theme_bw(16)
-    p <- p + theme(legend.position = "bottom")
-    p <- p + scale_color_brewer("age group", palette = "Set1",
-                                labels = age.labels)
-    p <- p + scale_y_continuous("proportion of cases", limits = c(0, 1))
-    p <- p + scale_x_continuous("years")
-    p <- p + facet_grid(uptake ~ mixing)
-
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("prop_cases_cpx_vacc_dynamic", ext, sep = "."), p, width = 9)
-    }
+    ## now, measles-specific stuff
 
     ## run dynamic model from equilibrium, with vaccination at a few
     ## different levels introduced at birth (e.g., 50, 80, 90, 95)
     ## observe change in age distribution
-    
-    ## compare with measles
 
     years <- seq(1944, 2010)
 
     ## polymod: approximate R0 from mean age of infection
-    mmr <- estimate.immunity.mmr(years = years, age.limits = lower.limits)
+    mmr <- estimate.immunity.mmr(years = years, age.limits = age.limits)
 
-    social.age.dist.ms.vacc <-
-        age.distribution(contact.matrix, R0 = R0.ms.social,
+    age.dist.ms.vacc <- list()
+    for (this.model in names(matrix))
+    {
+      age.dist.ms.vacc[[this.model]] <-
+        age.distribution(matrix[[this.model]],
+                         R0 = R0[[infection]][[this.model]],
                          vaccination = mmr, years = years)
-    hom.age.dist.ms.vacc <- age.distribution(hom.matrix, R0 = R0.ms.hom,
-                                             vaccination = mmr, years = years)
-    diagonal.age.dist.ms.vacc <- age.distribution(diagonal.matrix, R0 = R0.ms.diagonal,
-                                             vaccination = mmr, years = years)
-
+      age.dist.ms.vacc[[this.model]][, mixing := this.model]
+    }
     ## for the classic age of infection, we test 1) the overall
     ## vaccination level and 2) vaccination levels at birth
     min.diff <- min(pop.ew.age[, year]) - min(vaccine.ew[, year])
     if (min.diff > 0) {
-        previous.pop <-
-            backcalc.population(min.diff, unique(ms.ew.age[, lower.age.limit]))
-        previous.pop <-
-            previous.pop[, year := vaccine.ew[year < min(pop.ew.age[, year]), year]]
-        m.previous.pop <- melt(previous.pop, id.vars = "year",
-                               variable.name = "lower.age.limit")
-        setnames(m.previous.pop, "value", "population")
-        m.previous.pop <-
-            m.previous.pop[, lower.age.limit :=
-                               as.numeric(as.character(lower.age.limit))]
-        pop.ew.age <- rbind(m.previous.pop, pop.ew.age)
+      previous.pop <-
+        backcalc.population(min.diff, unique(ms.ew.age[, lower.age.limit]))
+      previous.pop <-
+        previous.pop[, year := vaccine.ew[year < min(pop.ew.age[, year]), year]]
+      m.previous.pop <- melt(previous.pop, id.vars = "year",
+                             variable.name = "lower.age.limit")
+      setnames(m.previous.pop, "value", "population")
+      m.previous.pop <-
+        m.previous.pop[, lower.age.limit :=
+                           as.numeric(as.character(lower.age.limit))]
+      pop.ew.age <- rbind(m.previous.pop, pop.ew.age)
     }
 
-    pop.ew.age[, lower.age.limit :=
-                   reduce.agegroups(lower.age.limit,
-                                    unique(ms.ew.age[, lower.age.limit]))]
+    pop.ew.age[, lower.age.limit := reduce.agegroups(lower.age.limit, unique(ms.ew.age[, lower.age.limit]))]
     pop.ew.age <- pop.ew.age[, list(population = sum(population)),
                              by = list(year, lower.age.limit)]
     setkey(pop.ew.age, year, lower.age.limit)
@@ -1549,449 +1385,91 @@ plot_mixing_vacc_ages <- function(ext = NA, classic.life.expectancy = 80,
     m.mmr <- m.mmr[!is.finite(rel.vaccinated), rel.vaccinated := 0]
 
     ## mean age at infection
-    meanage.hom.ms.vacc <-
-        hom.age.dist.ms.vacc[,
-                             list(mean.age = sum(proportion.cases * lower.age.limit)),
-                             by = list(year)]
-    meanage.classic.ms.vacc.all <-
+    meanage.ms.vacc <- list()
+    for (this.model in names(matrix))
+    {
+      meanage.ms.vacc[[this.model]] <-
+        age.dist.ms.vacc[[this.model]][,
+                                       list(mean.age = sum(proportion.cases * lower.age.limit)),
+                                       by = list(year)]
+      meanage.ms.vacc[[this.model]][, model := this.model]
+    }
+    meanage.ms.vacc[["classic"]] <-
         data.table(year = years,
                    mean.age = classic.life.expectancy /
-                       (R0.ms.classic * (1 - m.mmr[, rel.vaccinated])))
+                       (R0[["measles"]][["classic"]] *
+                        (1 - m.mmr[, rel.vaccinated])),
+                   model = "classic")
     ## meanage.classic.ms.vacc.newborn <-
     ##     data.table(year = meanage.hom.ms.vacc[, year],
     ##                mean.age = classic.life.expectancy / (R0.ms.classic *
     ##                    (1 - c(rep(0, min(vaccine.ew[, year]) - min(years)),
     ##                           vaccine.ew[year %in% years, MCV1 / 100]))))
-    meanage.social.ms.vacc <-
-        social.age.dist.ms.vacc[, list(mean.age =
-                                           sum(proportion.cases * lower.age.limit)),
-                                by = list(year)]
-    meanage.diagonal.ms.vacc <-
-        diagonal.age.dist.ms.vacc[, list(mean.age =
-                                           sum(proportion.cases * lower.age.limit)),
-                                by = list(year)]
-    meanage.data.ms.vacc <-
-        data.table(year = years,
-                   mean.age = sapply(years, function(x) {
-                       ms.ew.age[year == x, wtd.mean(lower.age.limit, abs.incidence)]
-                   }))
 
-    meanage.classic.ms.vacc.all <-
-        meanage.classic.ms.vacc.all[, model := "classic"]
-    ## meanage.classic.ms.vacc.newborn <-
-    ##     meanage.classic.ms.vacc.newborn[, model := "classic (birth vaccinations)"]
-    meanage.hom.ms.vacc <- meanage.hom.ms.vacc[, model := "homogenous"]
-    meanage.social.ms.vacc <- meanage.social.ms.vacc[, model := "social"]
-    meanage.diagonal.ms.vacc <- meanage.diagonal.ms.vacc[, model := "diagonal"]
-    meanage.data.ms.vacc <- meanage.data.ms.vacc[, model := "data"]
-
-    meanage.ms.vacc <-
-        rbind(meanage.classic.ms.vacc.all, meanage.hom.ms.vacc,
-              meanage.social.ms.vacc, meanage.diagonal.ms.vacc,
-              meanage.data.ms.vacc)
+    meanage.ms.vacc <- rbindlist(meanage.ms.vacc)
 
     p <- ggplot(meanage.ms.vacc, aes(x = year, y = mean.age, color = model))
     p <- p + geom_line(lwd = 1.2)
-    p <- p + theme_bw(20)
+    ## p <- p + theme_bw(20)
     p <- p + theme(legend.position = "bottom")
     p <- p + scale_color_brewer(palette = "Set1")
     p <- p + scale_y_continuous("mean age at infection estimate")
     p <- p + scale_x_continuous(expression(R[0]))
     if (is.na(ext)) {
-        p
+      p
     } else {
-        ggsave(paste("meanage_ms_vacc_eq_model", ext, sep = "."), p)
+      ggsave(paste("meanage_ms_vacc_eq_model", ext, sep = "."), p)
     }
 
-    hom.age.dist.ms.vacc <- hom.age.dist.ms.vacc[, model := "homogeneous"]
-    social.age.dist.ms.vacc <- social.age.dist.ms.vacc[, model := "social"]
-    diagonal.age.dist.ms.vacc <- diagonal.age.dist.ms.vacc[, model := "diagonal"]
-
     ## get proportion of cases in the real world
-    ms.ew.age.annual.total <- ms.ew.age.annual[, list(abs.pop.incidence = sum(abs.incidence),
+    ms.ew.age.total <- ms.ew.age[, list(abs.pop.incidence = sum(abs.incidence),
                                         abs.population = sum(population)),
                                  by = list(year)]
-    setkey(ms.ew.age.annual.total, year)
-    ms.ew.age.annual <- merge(ms.ew.age.annual, ms.ew.age.annual.total, by = "year")
-    ms.ew.age.annual <- ms.ew.age.annual[, proportion.cases := abs.incidence / abs.pop.incidence]
-    ms.ew.age.annual <- ms.ew.age.annual[, abs.pop.incidence := NULL]
-    ms.ew.age.annual <- ms.ew.age.annual[, abs.population := NULL]
-    ms.ew.age.annual <- ms.ew.age.annual[, model := "data"]
+    setkey(ms.ew.age.total, year)
+    ms.ew.age <- merge(ms.ew.age, ms.ew.age.total, by = "year")
+    ms.ew.age <- ms.ew.age[, proportion.cases := abs.incidence / abs.pop.incidence]
+    ms.ew.age <- ms.ew.age[, abs.pop.incidence := NULL]
+    ms.ew.age <- ms.ew.age[, abs.population := NULL]
+    ms.ew.age <- ms.ew.age[, model := "data"]
 
-    age.dist.ms.vacc <- rbind(hom.age.dist.ms.vacc, social.age.dist.ms.vacc,
-                              diagonal.age.dist.ms.vacc, 
-                              ms.ew.age.annual[year < max(years)], use.names = T,
+    age.dist.ms.vacc <- rbind(age.dist.ms.vacc[["homogeneous"]],
+                              age.dist.ms.vacc[["social"]],
+                              ms.ew.age[year < max(years)], use.names = T,
                               fill = TRUE)
 
     p <- ggplot(age.dist.ms.vacc, aes(x = year, y = proportion.cases,
-                                 color = factor(lower.age.limit)))
+                                      color = factor(lower.age.limit)))
     p <- p + geom_line(lwd = 1.2)
     p <- p + theme_bw(20)
     p <- p + theme(legend.position = "bottom")
     p <- p +
-        scale_color_brewer("age group", palette = "Dark2",
-                           labels = limits.to.agegroups(ms.ew.age[, lower.age.limit]))
+      scale_color_brewer("age group", palette = "Dark2",
+                         labels = limits.to.agegroups(ms.ew.age[, lower.age.limit]))
     p <- p + facet_grid(model ~ .)
     p <- p + scale_y_continuous("proportion of cases")
     p <- p + scale_x_continuous("year")
     if (is.na(ext)) {
-        p
+      p
     } else {
-        ggsave(paste("prop_cases_ms_vacc_eq_model", ext, sep = "."), p)
+      ggsave(paste("prop_cases_ms_vacc_eq_model", ext, sep = "."), p)
     }
 
-    R0.ms <- c(1.01, 1.1, seq(1.5, 39.5, by = 0.5))
+    vacc.age <- rbindlist(vacc.age)
 
-    ## strengthen diagonal
-    contact.matrix.diag <- diag(diag(contact.matrix))
-    colnames(contact.matrix.diag) <- colnames(contact.matrix)
-    rownames(contact.matrix.diag) <- rownames(contact.matrix)
-
-    hom.matrix.diag <- diag(diag(hom.matrix))
-    colnames(hom.matrix.diag) <- colnames(hom.matrix)
-    rownames(hom.matrix.diag) <- rownames(hom.matrix)
-
-    social.age.dist.ms.diag <- age.distribution(contact.matrix.diag, R0 = R0.ms)
-    hom.age.dist.ms.diag <- age.distribution(hom.matrix.diag, R0 = R0.ms)
-
-    ## mean age at infection
-    meanage.hom.ms.diag <-
-        hom.age.dist.ms.diag[, list(mean.age = sum(proportion.cases *
-                                                       lower.age.limit)),
-                        by = list(R0)]
-    meanage.classic.ms.diag <-
-        data.table(R0 = meanage.hom.ms.diag[, R0],
-                   mean.age = classic.life.expectancy / (meanage.hom.ms.diag[, R0]))
-    meanage.social.ms.diag <-
-        social.age.dist.ms.diag[, list(mean.age =
-                                           sum(proportion.cases * lower.age.limit)),
-                           by = list(R0)]
-
-    meanage.classic.ms.diag <- meanage.classic.ms.diag[, model := "classic"]
-    meanage.hom.ms.diag <- meanage.hom.ms.diag[, model := "homogeneous"]
-    meanage.social.ms.diag <- meanage.social.ms.diag[, model := "social"]
-    meanage.ms.diag <-
-        rbind(meanage.classic.ms.diag, meanage.hom.ms.diag, meanage.social.ms.diag)
-
-    p <- ggplot(meanage.ms.diag, aes(x = R0, y = mean.age, color = model))
+    p <- ggplot(vacc.age, aes(x = vaccination, y = proportion.cases,
+                          color = factor(lower.age.limit)))
     p <- p + geom_line(lwd = 1.2)
-    p <- p + geom_hline(yintercept = meanage.data.ms, lwd = 1.2, color = "black")
-    p <- p + theme_bw(20)
+    ## p <- p + theme_bw(20)
     p <- p + theme(legend.position = "bottom")
-    p <- p + scale_color_brewer(palette = "Set1")
-    p <- p + scale_y_continuous("mean age at infection estimate")
-    p <- p + scale_x_continuous(expression(R[0]))
+    p <- p + scale_color_brewer("age group", palette = "Set1",
+                                labels = age.labels)
+    p <- p + scale_y_continuous("proportion of cases", limits = c(0, 1))
+    p <- p + scale_x_continuous("vaccination coverage")
+    p <- p + facet_grid(infection ~ mixing)
+
     if (is.na(ext)) {
         p
     } else {
-        ggsave(paste("meanage_ms_eq_diag_model", ext, sep = "."), p)
-    }
-
-    hom.age.dist.ms.diag <- hom.age.dist.ms.diag[, model := "homogeneous"]
-    social.age.dist.ms.diag <- social.age.dist.ms.diag[, model := "social"]
-
-    age.dist.ms.diag <- rbind(hom.age.dist.ms.diag, social.age.dist.ms.diag)
-
-    p <- ggplot(age.dist.ms.diag, aes(x = R0, y = proportion.cases,
-                                 color = factor(lower.age.limit)))
-    p <- p + geom_line(lwd = 1.2)
-    p <- p + theme_bw(20)
-    p <- p + theme(legend.position = "bottom")
-    p <- p +
-        scale_color_brewer("age group", palette = "Dark2",
-                           labels = limits.to.agegroups(ms.ew.age[, lower.age.limit]))
-    p <- p + facet_grid(model ~ ., scales = "free")
-    p <- p + scale_y_continuous("proportion of cases")
-    p <- p + scale_x_continuous(expression(R[0]))
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("prop_cases_ms_diag_eq_model", ext, sep = "."), p)
-    }
-
-    ## now, vaccination
-
-    years <- seq(1944, 2010)
-
-    ## polymod: approximate R0 from mean age of infection
-    R0.ms.diag.social <- approx(meanage.social.ms.diag[, mean.age],
-                                meanage.social.ms.diag[, R0], meanage.data.ms)$y
-    R0.ms.diag.hom <- approx(meanage.hom.ms.diag[, mean.age],
-                             meanage.hom.ms.diag[, R0], meanage.data.ms)$y
-    R0.ms.diag.classic <- classic.life.expectancy / meanage.data.ms
-
-    mmr <- estimate.immunity.mmr(years = years, age.limits = lower.limits)
-
-    social.age.dist.ms.diag.vacc <-
-        age.distribution(contact.matrix.diag, R0 = R0.ms.diag.social,
-                         vaccination = mmr, years = years)
-    hom.age.dist.ms.diag.vacc <-
-        age.distribution(hom.matrix.diag, R0 = R0.ms.diag.hom,
-                         vaccination = mmr, years = years)
-
-    social.age.dist.ms.diag.vacc <-
-        age.distribution(contact.matrix.diag, R0 = R0.ms.diag.social,
-                         vaccination = mmr, years = years)
-    hom.age.dist.ms.diag.vacc <- age.distribution(hom.matrix.diag, R0 = R0.ms.diag.hom,
-                                             vaccination = mmr, years = years)
-
-    ## mean age at infection
-    meanage.hom.ms.diag.vacc <-
-        hom.age.dist.ms.diag.vacc[,
-                             list(mean.age = sum(proportion.cases * lower.age.limit)),
-                             by = list(year)]
-    meanage.classic.ms.diag.vacc.all <-
-        data.table(year = years,
-                   mean.age = classic.life.expectancy /
-                       (R0.ms.diag.classic * (1 - m.mmr[, rel.vaccinated])))
-    ## meanage.classic.ms.diag.vacc.newborn <-
-    ##     data.table(year = meanage.hom.ms.diag.vacc[, year],
-    ##                mean.age = classic.life.expectancy / (R0.ms.diag.classic *
-    ##                    (1 - c(rep(0, min(vaccine.ew[, year]) - min(years)),
-    ##                           vaccine.ew[year %in% years, MCV1 / 100]))))
-    meanage.social.ms.diag.vacc <-
-        social.age.dist.ms.diag.vacc[, list(mean.age = sum(proportion.cases *
-                                                               lower.age.limit)),
-                                     by = list(year)]
-    meanage.data.ms.diag.vacc <-
-        data.table(year = years,
-                   mean.age = sapply(years, function(x) {
-                       ms.ew.age[year == x, wtd.mean(lower.age.limit, abs.incidence)]
-                   }))
-
-    meanage.classic.ms.diag.vacc.all <-
-        meanage.classic.ms.diag.vacc.all[, model := "classic"]
-    ## meanage.classic.ms.diag.vacc.newborn <-
-    ##     meanage.classic.ms.diag.vacc.newborn[, model := "classic (birth vaccinations)"]
-    meanage.hom.ms.diag.vacc <- meanage.hom.ms.diag.vacc[, model := "homogenous"]
-    meanage.social.ms.diag.vacc <- meanage.social.ms.diag.vacc[, model := "social"]
-    meanage.data.ms.diag.vacc <- meanage.data.ms.diag.vacc[, model := "data"]
-
-    meanage.ms.diag.vacc <-
-        rbind(meanage.classic.ms.diag.vacc.all, meanage.hom.ms.diag.vacc,
-              meanage.social.ms.diag.vacc, meanage.data.ms.diag.vacc)
-
-    p <- ggplot(meanage.ms.diag.vacc, aes(x = year, y = mean.age, color = model))
-    p <- p + geom_line(lwd = 1.2)
-    p <- p + theme_bw(20)
-    p <- p + theme(legend.position = "bottom")
-    p <- p + scale_color_brewer(palette = "Set1")
-    p <- p + scale_y_continuous("mean age at infection estimate")
-    p <- p + scale_x_continuous(expression(R[0]))
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("meanage_ms_diag_vacc_eq_model", ext, sep = "."), p)
-    }
-
-    hom.age.dist.ms.diag.vacc <- hom.age.dist.ms.diag.vacc[, model := "homogeneous"]
-    social.age.dist.ms.diag.vacc <- social.age.dist.ms.diag.vacc[, model := "social"]
-
-    ## get proportion of cases in the real world
-    ms.ew.age.total <- ms.ew.age[, list(abs.pop.incidence = sum(abs.incidence),
-                                        abs.population = sum(population)),
-                                 by = list(year)]
-    setkey(ms.ew.age.total, year)
-    ms.ew.age <- merge(ms.ew.age, ms.ew.age.total, by = "year")
-    ms.ew.age <- ms.ew.age[, proportion.cases := abs.incidence / abs.pop.incidence]
-    ms.ew.age <- ms.ew.age[, abs.pop.incidence := NULL]
-    ms.ew.age <- ms.ew.age[, abs.population := NULL]
-    ms.ew.age <- ms.ew.age[, model := "data"]
-
-    age.dist.ms.diag.vacc <-
-        rbind(hom.age.dist.ms.diag.vacc, social.age.dist.ms.diag.vacc,
-              ms.ew.age[year < max(years)], use.names = T, fill = TRUE)
-
-    p <- ggplot(age.dist.ms.diag.vacc, aes(x = year, y = proportion.cases,
-                                 color = factor(lower.age.limit)))
-    p <- p + geom_line(lwd = 1.2)
-    p <- p + theme_bw(20)
-    p <- p + theme(legend.position = "bottom")
-    p <-
-        p + scale_color_brewer("age group", palette = "Dark2",
-                               labels = limits.to.agegroups(ms.ew.age[,
-                               lower.age.limit]))
-    p <- p + facet_grid(model ~ .)
-    p <- p + scale_y_continuous("proportion of cases")
-    p <- p + scale_x_continuous("year")
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("prop_cases_ms_diag_vacc_eq_model", ext, sep = "."), p)
-    }
-
-    contact.matrix.kids <- copy(contact.matrix)
-
-    contact.matrix.kids[1,1] <- contact.matrix.kids[1, 1] * kids.mult
-    hom.matrix.kids <- copy(hom.matrix)
-
-    social.age.dist.ms.kids <- age.distribution(contact.matrix.kids, R0 = R0.ms)
-    hom.age.dist.ms.kids <- age.distribution(hom.matrix.kids, R0 = R0.ms)
-
-    ## mean age at infection
-    meanage.hom.ms.kids <-
-        hom.age.dist.ms.kids[, list(mean.age = sum(proportion.cases *
-                                                       lower.age.limit)),
-                        by = list(R0)]
-    meanage.classic.ms.kids <-
-        data.table(R0 = meanage.hom.ms.kids[, R0],
-                   mean.age = classic.life.expectancy / (meanage.hom.ms.kids[, R0]))
-    meanage.social.ms.kids <-
-        social.age.dist.ms.kids[, list(mean.age = sum(proportion.cases *
-                                                          lower.age.limit)),
-                           by = list(R0)]
-
-    meanage.classic.ms.kids <- meanage.classic.ms.kids[, model := "classic"]
-    meanage.hom.ms.kids <- meanage.hom.ms.kids[, model := "homogeneous"]
-    meanage.social.ms.kids <- meanage.social.ms.kids[, model := "social"]
-    meanage.ms.kids <-
-        rbind(meanage.classic.ms.kids, meanage.hom.ms.kids, meanage.social.ms.kids)
-
-    p <- ggplot(meanage.ms.kids, aes(x = R0, y = mean.age, color = model))
-    p <- p + geom_line(lwd = 1.2)
-    p <- p + geom_hline(yintercept = meanage.data.ms, lwd = 1.2, color = "black")
-    p <- p + theme_bw(20)
-    p <- p + theme(legend.position = "bottom")
-    p <- p + scale_color_brewer(palette = "Set1")
-    p <- p + scale_y_continuous("mean age at infection estimate")
-    p <- p + scale_x_continuous(expression(R[0]))
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("meanage_ms_eq_kids_model", ext, sep = "."), p)
-    }
-
-    hom.age.dist.ms.kids <- hom.age.dist.ms.kids[, model := "homogeneous"]
-    social.age.dist.ms.kids <- social.age.dist.ms.kids[, model := "social"]
-
-    age.dist.ms.kids <- rbind(hom.age.dist.ms.kids, social.age.dist.ms.kids)
-
-    p <- ggplot(age.dist.ms.kids, aes(x = R0, y = proportion.cases,
-                                 color = factor(lower.age.limit)))
-    p <- p + geom_line(lwd = 1.2)
-    p <- p + theme_bw(20)
-    p <- p + theme(legend.position = "bottom")
-    p <- p +
-        scale_color_brewer("age group", palette = "Dark2",
-                           labels = limits.to.agegroups(ms.ew.age[, lower.age.limit]))
-    p <- p + facet_grid(model ~ ., scales = "free")
-    p <- p + scale_y_continuous("proportion of cases")
-    p <- p + scale_x_continuous(expression(R[0]))
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("prop_cases_ms_kids_eq_model", ext, sep = "."), p)
-    }
-
-    ## now, vaccination
-
-    years <- seq(1944, 2010)
-
-    ## polymod: approximate R0 from mean age of infection
-    R0.ms.kids.social <- approx(meanage.social.ms.kids[, mean.age],
-                                meanage.social.ms.kids[, R0], meanage.data.ms)$y
-    R0.ms.kids.hom <- approx(meanage.hom.ms.kids[, mean.age],
-                             meanage.hom.ms.kids[, R0], meanage.data.ms)$y
-    R0.ms.kids.classic <- classic.life.expectancy / meanage.data.ms
-
-    mmr <- estimate.immunity.mmr(years = years, age.limits = lower.limits)
-
-    social.age.dist.ms.kids.vacc <-
-        age.distribution(contact.matrix.kids, R0 = R0.ms.kids.social,
-                         vaccination = mmr, years = years)
-    hom.age.dist.ms.kids.vacc <-
-        age.distribution(hom.matrix.kids, R0 = R0.ms.kids.hom,
-                         vaccination = mmr, years = years)
-
-    social.age.dist.ms.kids.vacc <-
-        age.distribution(contact.matrix.kids, R0 = R0.ms.kids.social,
-                         vaccination = mmr, years = years)
-    hom.age.dist.ms.kids.vacc <-
-        age.distribution(hom.matrix.kids, R0 = R0.ms.kids.hom,
-                         vaccination = mmr, years = years)
-
-    ## mean age at infection
-    meanage.hom.ms.kids.vacc <-
-        hom.age.dist.ms.kids.vacc[,
-                             list(mean.age = sum(proportion.cases * lower.age.limit)),
-                             by = list(year)]
-    meanage.classic.ms.kids.vacc.all <-
-        data.table(year = years,
-                   mean.age = classic.life.expectancy /
-                       (R0.ms.kids.classic * (1 - m.mmr[, rel.vaccinated])))
-    ## meanage.classic.ms.kids.vacc.newborn <-
-    ##     data.table(year = meanage.hom.ms.kids.vacc[, year],
-    ##                mean.age = classic.life.expectancy / (R0.ms.kids.classic *
-    ##                    (1 - c(rep(0, min(vaccine.ew[, year]) - min(years)),
-    ##                           vaccine.ew[year %in% years, MCV1 / 100]))))
-    meanage.social.ms.kids.vacc <-
-        social.age.dist.ms.kids.vacc[, list(mean.age = sum(proportion.cases *
-                                                               lower.age.limit)),
-                                     by = list(year)]
-    meanage.data.ms.kids.vacc <-
-        data.table(year = years,
-                   mean.age = sapply(years, function(x) {
-                       ms.ew.age[year == x, wtd.mean(lower.age.limit, abs.incidence)]
-                   }))
-
-    meanage.classic.ms.kids.vacc.all <-
-        meanage.classic.ms.kids.vacc.all[, model := "classic"]
-    ## meanage.classic.ms.kids.vacc.newborn <-
-    ##     meanage.classic.ms.kids.vacc.newborn[, model := "classic (birth vaccinations)"]
-    meanage.hom.ms.kids.vacc <- meanage.hom.ms.kids.vacc[, model := "homogenous"]
-    meanage.social.ms.kids.vacc <- meanage.social.ms.kids.vacc[, model := "social"]
-    meanage.data.ms.kids.vacc <- meanage.data.ms.kids.vacc[, model := "data"]
-
-    meanage.ms.kids.vacc <-
-        rbind(meanage.classic.ms.kids.vacc.all, meanage.hom.ms.kids.vacc,
-              meanage.social.ms.kids.vacc, meanage.data.ms.kids.vacc)
-
-    p <- ggplot(meanage.ms.kids.vacc, aes(x = year, y = mean.age, color = model))
-    p <- p + geom_line(lwd = 1.2)
-    p <- p + theme_bw(20)
-    p <- p + theme(legend.position = "bottom")
-    p <- p + scale_color_brewer(palette = "Set1")
-    p <- p + scale_y_continuous("mean age at infection estimate")
-    p <- p + scale_x_continuous(expression(R[0]))
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("meanage_ms_kids_vacc_eq_model", ext, sep = "."), p)
-    }
-
-    hom.age.dist.ms.kids.vacc <- hom.age.dist.ms.kids.vacc[, model := "homogeneous"]
-    social.age.dist.ms.kids.vacc <- social.age.dist.ms.kids.vacc[, model := "social"]
-
-    ## get proportion of cases in the real world
-    ms.ew.age.total <- ms.ew.age[, list(abs.pop.incidence = sum(abs.incidence),
-                                        abs.population = sum(population)),
-                                 by = list(year)]
-    setkey(ms.ew.age.total, year)
-    ms.ew.age <- merge(ms.ew.age, ms.ew.age.total, by = "year")
-    ms.ew.age <- ms.ew.age[, proportion.cases := abs.incidence / abs.pop.incidence]
-    ms.ew.age <- ms.ew.age[, abs.pop.incidence := NULL]
-    ms.ew.age <- ms.ew.age[, abs.population := NULL]
-    ms.ew.age <- ms.ew.age[, model := "data"]
-
-    age.dist.ms.kids.vacc <-
-        rbind(hom.age.dist.ms.kids.vacc, social.age.dist.ms.kids.vacc,
-              ms.ew.age[year < max(years)], use.names = T, fill = TRUE)
-
-    p <- ggplot(age.dist.ms.kids.vacc, aes(x = year, y = proportion.cases,
-                                 color = factor(lower.age.limit)))
-    p <- p + geom_line(lwd = 1.2)
-    p <- p + theme_bw(20)
-    p <- p + theme(legend.position = "bottom")
-    p <- p +
-        scale_color_brewer("age group", palette = "Dark2",
-                           labels = limits.to.agegroups(ms.ew.age[, lower.age.limit]))
-    p <- p + facet_grid(model ~ .)
-    p <- p + scale_y_continuous("proportion of cases")
-    p <- p + scale_x_continuous("year")
-    if (is.na(ext)) {
-        p
-    } else {
-        ggsave(paste("prop_cases_ms_kids_vacc_eq_model", ext, sep = "."), p)
+        ggsave(paste("prop_cases_vacc", ext, sep = "."), p, width = 9)
     }
 }
-

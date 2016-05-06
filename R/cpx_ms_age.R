@@ -186,6 +186,12 @@ estimate.immunity.mmr <- function(vaccine.efficacy = 0.9,
         years <- immunity.estimate.table[, year]
     }
 
+    ## fill missing ages
+    for (col in setdiff(age.limits, colnames(immunity.estimate.table)))
+    {
+        immunity.estimate.table[, paste(col) := as.numeric(0)]
+    }
+
     return(immunity.estimate.table[year %in% years])
 
 }
@@ -450,164 +456,162 @@ ew.pop.parameters <- function(age.limits, year.limits = NULL, interpolate = FALS
 
 }
 
-##' Generate initial conditions for chickenpox from given proportion
+##' Generate initial conditions for measles or chickenpox from given proportion
 ##' of susceptibles
 ##'
 ##' @param parameters Model parameters
+##' @param infection "measles" or "chickenpox"
 ##' @return Named vector of initial conditions
 ##' @author Sebastian Funk
 ##' @export
-cpx.init <- function(parameters) {
+gen.init <- function(parameters, infection = c("measles", "chickenpox")) {
 
-    data(cpx_ew_age)
+    infection <- match.arg(infection)
 
-    infectious.period <- 1 / parameters[["gamma"]]
-    latent.period <- 1 / parameters[["rho"]]
+    init <- c()
 
-    lower.limits <- agegroups.to.limits(colnames(parameters[["mixing"]]))
-
-    cpx.ew.age[, lower.age.limit := reduce.agegroups(lower.age.limit,
-                                                     lower.limits)]
-    min.year <- cpx.ew.age[, min(year)]
-    cpx.init.infected <-
-        cpx.ew.age[year == min.year,
-                   list(abs.prevalence = sum(abs.incidence) /
-                            parameters[["underreporting"]] *
-                                (latent.period + infectious.period),
-                        population = mean(population)),
-                   by = list(lower.age.limit)]
-
-    init.susc <- unname(unlist(parameters[grep("^init\\.susc\\.[0-9]+$",
-                                               names(parameters))]))
-    init.S <-
-        round(init.susc * cpx.init.infected[, population])
-
-    if (any(grep("^init\\.inf\\.[0-9]+$", names(parameters))))
+    if (infection == "measles")
     {
-        init.inf <- unname(unlist(parameters[grep("^init\\.inf\\.[0-9]+$",
-                                                  names(parameters))]))
-        init.I <-
-            round(init.inf * cpx.init.infected[, population])
-    } else
-    {
-        init.I <- round(cpx.init.infected[, abs.prevalence] * infectious.period /
-                            (infectious.period + latent.period))
-    }
-    if (any(grep("^init\\.exp\\.[0-9]+$", names(parameters))))
-    {
-        init.exp <- unname(unlist(parameters[grep("^init\\.exp\\.[0-9]+$",
-                                                  names(parameters))]))
-        init.E <-
-            round(init.exp * cpx.init.infected[, population])
-    } else
-    {
-        init.E <- round(cpx.init.infected[, abs.prevalence] * latent.period /
-                            (infectious.period + latent.period))
-    }
-    init.R <- cpx.init.infected[, population] - init.S - init.I - init.E
-    init.Z <- rep(0, nrow(cpx.init.infected))
+        data(ms_ew_age)
 
-    ## make sure all is >0
-    init.S[which(init.R < 0)] <-
-        init.S[which(init.R < 0)] + init.R[which(init.R < 0)]
-    init.R[which(init.R < 0)] <-  0
+        infectious.period <- 1 / parameters[["gamma"]]
+        latent.period <- 1 / parameters[["rho"]]
 
-    if ("maternal.immunity" %in% names(parameters) &&
-        parameters[["maternal.immunity"]] > 0)
-    {
-        init.B <- init.S[1] * parameters[["maternal.immunity"]]
-        init.S[1] <- init.S[1] * (1 - parameters[["maternal.immunity"]])
-        init <- c(init.B, init.S, init.E, init.I, init.R, init.Z)
-        names(init) <- c("B1",
-                         paste("S", seq_len(nrow(ms.init.infected)), sep = ""),
-                         paste("E", seq_len(nrow(ms.init.infected)), sep = ""),
-                         paste("I", seq_len(nrow(ms.init.infected)), sep = ""),
-                         paste("R", seq_len(nrow(ms.init.infected)), sep = ""),
-                         paste("Z", seq_len(nrow(ms.init.infected)), sep = ""))
-    } else
-    {
-        init <- c(init.S, init.E, init.I, init.R, init.Z)
-        names(init) <- c(paste("S", seq_len(nrow(cpx.init.infected)), sep = ""),
-                         paste("E", seq_len(nrow(cpx.init.infected)), sep = ""),
-                         paste("I", seq_len(nrow(cpx.init.infected)), sep = ""),
-                         paste("R", seq_len(nrow(cpx.init.infected)), sep = ""),
-                         paste("Z", seq_len(nrow(cpx.init.infected)), sep = ""))
-    }
+        lower.limits <- agegroups.to.limits(colnames(parameters[["mixing"]]))
 
-    init
-}
+        ms.ew.age[, lower.age.limit :=
+                        reduce.agegroups(lower.age.limit, lower.limits)]
+        ms.ew.age <- ms.ew.age[, list(abs.incidence = sum(abs.incidence),
+                                      population = sum(population)),
+                               by = list(year, lower.age.limit)]
 
-##' Generate initial conditions for measles from given proportion
-##' of susceptibles
-##'
-##' @param parameters Model parameters
-##' @return Named vector of initial conditions
-##' @author Sebastian Funk
-##' @export
-ms.init <- function(parameters) {
-
-    data(ms_ew_age)
-
-    infectious.period <- 1 / parameters[["gamma"]]
-    latent.period <- 1 / parameters[["rho"]]
-
-    lower.limits <- agegroups.to.limits(colnames(parameters[["mixing"]]))
-
-    ms.ew.age[, lower.age.limit :=
-                    reduce.agegroups(lower.age.limit, lower.limits)]
-    ms.ew.age <- ms.ew.age[, list(abs.incidence = sum(abs.incidence),
-                                  population = sum(population)),
-                           by = list(year, lower.age.limit)]
-
-    min.year <- ms.ew.age[, min(year)]
-    ms.init.infected <-
-        ms.ew.age[year == min.year,
-                  list(abs.prevalence = sum(abs.incidence) /
-                           parameters[["underreporting"]] *
+        min.year <- ms.ew.age[, min(year)]
+        ms.init.infected <-
+            ms.ew.age[year == min.year,
+                      list(abs.prevalence = sum(abs.incidence) /
+                               parameters[["underreporting"]] *
                                (latent.period + infectious.period),
-                       population = mean(population)),
-                  by = list(lower.age.limit)]
+                           population = mean(population)),
+                      by = list(lower.age.limit)]
 
-    init.susc <- unname(unlist(parameters[grep("^init\\.susc\\.[0-9]+$",
-                                               names(parameters))]))
+        init.susc <- unname(unlist(parameters[grep("^init\\.susc\\.[0-9]+$",
+                                                   names(parameters))]))
 
-    init.I <- round(ms.init.infected[, abs.prevalence] * infectious.period /
+        init.I <- round(ms.init.infected[, abs.prevalence] * infectious.period /
                         (infectious.period + latent.period))
-    init.E <- round(ms.init.infected[, abs.prevalence] * latent.period /
+        init.E <- round(ms.init.infected[, abs.prevalence] * latent.period /
                         (infectious.period + latent.period))
-    init.S <- pmin(round(init.susc * ms.init.infected[, population]),
-                   ms.init.infected[, population] - init.I - init.E)
-    init.R <- ms.init.infected[, population] - init.S - init.I - init.E
-    init.Z <- rep(0, nrow(ms.init.infected))
+        init.S <- pmin(round(init.susc * ms.init.infected[, population]),
+                       ms.init.infected[, population] - init.I - init.E)
+        init.R <- ms.init.infected[, population] - init.S - init.I - init.E
+        init.Z <- rep(0, nrow(ms.init.infected))
 
-    ## make sure all is >0
-    init.S[which(init.R < 0)] <-
-        init.S[which(init.R < 0)] + init.R[which(init.R < 0)]
-    init.R[which(init.R < 0)] <-  0
+        ## make sure all is >0
+        init.S[which(init.R < 0)] <-
+            init.S[which(init.R < 0)] + init.R[which(init.R < 0)]
+        init.R[which(init.R < 0)] <-  0
 
-    if ("maternal.immunity" %in% names(parameters) &&
-        parameters[["maternal.immunity"]] > 0)
+        if ("maternal.immunity" %in% names(parameters) &&
+            parameters[["maternal.immunity"]] > 0)
+        {
+            init.B <- init.S[1] * parameters[["maternal.immunity"]]
+            init.S[1] <- init.S[1] * (1 - parameters[["maternal.immunity"]])
+            init <- c(init.B, init.S, init.E, init.I, init.R, init.Z)
+            names(init) <- c("B1",
+                             paste("S", seq_len(nrow(ms.init.infected)), sep = ""),
+                             paste("E", seq_len(nrow(ms.init.infected)), sep = ""),
+                             paste("I", seq_len(nrow(ms.init.infected)), sep = ""),
+                             paste("R", seq_len(nrow(ms.init.infected)), sep = ""),
+                             paste("Z", seq_len(nrow(ms.init.infected)), sep = ""))
+        } else
+        {
+            init <- c(init.S, init.E, init.I, init.R, init.Z)
+            names(init) <- c(paste("S", seq_len(nrow(ms.init.infected)), sep = ""),
+                             paste("E", seq_len(nrow(ms.init.infected)), sep = ""),
+                             paste("I", seq_len(nrow(ms.init.infected)), sep = ""),
+                             paste("R", seq_len(nrow(ms.init.infected)), sep = ""),
+                             paste("Z", seq_len(nrow(ms.init.infected)), sep = ""))
+        }
+    } else if (infection == "chickenpox")
     {
-        init.B <- init.S[1] * parameters[["maternal.immunity"]]
-        init.S[1] <- init.S[1] * (1 - parameters[["maternal.immunity"]])
-        init <- c(init.B, init.S, init.E, init.I, init.R, init.Z)
-        names(init) <- c("B1",
-                         paste("S", seq_len(nrow(ms.init.infected)), sep = ""),
-                         paste("E", seq_len(nrow(ms.init.infected)), sep = ""),
-                         paste("I", seq_len(nrow(ms.init.infected)), sep = ""),
-                         paste("R", seq_len(nrow(ms.init.infected)), sep = ""),
-                         paste("Z", seq_len(nrow(ms.init.infected)), sep = ""))
-    } else
-    {
-        init <- c(init.S, init.E, init.I, init.R, init.Z)
-        names(init) <- c(paste("S", seq_len(nrow(ms.init.infected)), sep = ""),
-                         paste("E", seq_len(nrow(ms.init.infected)), sep = ""),
-                         paste("I", seq_len(nrow(ms.init.infected)), sep = ""),
-                         paste("R", seq_len(nrow(ms.init.infected)), sep = ""),
-                         paste("Z", seq_len(nrow(ms.init.infected)), sep = ""))
+        data(cpx_ew_age)
+
+        infectious.period <- 1 / parameters[["gamma"]]
+        latent.period <- 1 / parameters[["rho"]]
+
+        lower.limits <- agegroups.to.limits(colnames(parameters[["mixing"]]))
+
+        cpx.ew.age[, lower.age.limit := reduce.agegroups(lower.age.limit,
+                                                         lower.limits)]
+        min.year <- cpx.ew.age[, min(year)]
+        cpx.init.infected <-
+            cpx.ew.age[year == min.year,
+                       list(abs.prevalence = sum(abs.incidence) /
+                                parameters[["underreporting"]] *
+                                (latent.period + infectious.period),
+                            population = mean(population)),
+                       by = list(lower.age.limit)]
+
+        init.susc <- unname(unlist(parameters[grep("^init\\.susc\\.[0-9]+$",
+                                                   names(parameters))]))
+        init.S <-
+            round(init.susc * cpx.init.infected[, population])
+
+        if (any(grep("^init\\.inf\\.[0-9]+$", names(parameters))))
+        {
+            init.inf <- unname(unlist(parameters[grep("^init\\.inf\\.[0-9]+$",
+                                                      names(parameters))]))
+            init.I <-
+                round(init.inf * cpx.init.infected[, population])
+        } else
+        {
+            init.I <- round(cpx.init.infected[, abs.prevalence] * infectious.period /
+                            (infectious.period + latent.period))
+        }
+        if (any(grep("^init\\.exp\\.[0-9]+$", names(parameters))))
+        {
+            init.exp <- unname(unlist(parameters[grep("^init\\.exp\\.[0-9]+$",
+                                                      names(parameters))]))
+            init.E <-
+                round(init.exp * cpx.init.infected[, population])
+        } else
+        {
+            init.E <- round(cpx.init.infected[, abs.prevalence] * latent.period /
+                            (infectious.period + latent.period))
+        }
+        init.R <- cpx.init.infected[, population] - init.S - init.I - init.E
+        init.Z <- rep(0, nrow(cpx.init.infected))
+
+        ## make sure all is >0
+        init.S[which(init.R < 0)] <-
+            init.S[which(init.R < 0)] + init.R[which(init.R < 0)]
+        init.R[which(init.R < 0)] <-  0
+
+        if ("maternal.immunity" %in% names(parameters) &&
+            parameters[["maternal.immunity"]] > 0)
+        {
+            init.B <- init.S[1] * parameters[["maternal.immunity"]]
+            init.S[1] <- init.S[1] * (1 - parameters[["maternal.immunity"]])
+            init <- c(init.B, init.S, init.E, init.I, init.R, init.Z)
+            names(init) <- c("B1",
+                             paste("S", seq_len(nrow(ms.init.infected)), sep = ""),
+                             paste("E", seq_len(nrow(ms.init.infected)), sep = ""),
+                             paste("I", seq_len(nrow(ms.init.infected)), sep = ""),
+                             paste("R", seq_len(nrow(ms.init.infected)), sep = ""),
+                             paste("Z", seq_len(nrow(ms.init.infected)), sep = ""))
+        } else
+        {
+            init <- c(init.S, init.E, init.I, init.R, init.Z)
+            names(init) <- c(paste("S", seq_len(nrow(cpx.init.infected)), sep = ""),
+                             paste("E", seq_len(nrow(cpx.init.infected)), sep = ""),
+                             paste("I", seq_len(nrow(cpx.init.infected)), sep = ""),
+                             paste("R", seq_len(nrow(cpx.init.infected)), sep = ""),
+                             paste("Z", seq_len(nrow(cpx.init.infected)), sep = ""))
+        }
+
     }
 
-    init
+    return(init)
 }
 
 ##' Interpolate serology
@@ -708,82 +712,6 @@ cpx.init.prior <- function(init) {
 
 }
 
-##' Randomly sample initial conditions for chickenpox on the basis of serology
-##'
-##' @param parameters given (mixing) parameters
-##' @return the proportion susceptible in each age group
-##' @author Sebastian Funk
-sample.cpx.init <- function(parameters) {
-
-    data(cpx_sero)
-    data(cpx_ew_age)
-
-    lower.limits <- agegroups.to.limits(colnames(parameters[["mixing"]]))
-
-    serology <- interpolate.serology(lower.limits)
-    before.serology <- serology[year < min(cpx.ew.age[, year])]
-    max.before <- max(before.serology[, year])
-    first.serology <- before.serology[year == max.before]
-    min.year <- min(cpx.ew.age[, year])
-    first.pop.state <- cpx.ew.age[year == min.year,
-                                  list(population = mean(population)),
-                                  by = lower.age.limit]
-    first.pop.state[, lower.age.limit :=
-                          reduce.agegroups(lower.age.limit, lower.limits)]
-    first.pop.state <- first.pop.state[, list(population = sum(population)),
-                                       by = lower.age.limit]
-
-    setkey(first.serology, lower.age.limit)
-    setkey(first.pop.state, lower.age.limit)
-
-    first.serology <- merge(first.serology, first.pop.state)
-
-    first.sampler <-
-        first.serology[, list(mean = antibodies * population / samples,
-                              sd = sqrt((population -
-                                             antibodies * population / samples) *
-                                                 antibodies * population / (samples^2)*
-                                                     (population - samples) /(population - 1)),
-                              population = population,
-                              prop.immune = -1),
-                       by = lower.age.limit]
-
-    while (any(first.sampler[, prop.immune > 1 | prop.immune < 0])) {
-        first.sampler <-
-            first.sampler[, list(prop.immune = ifelse(prop.immune > 1 |
-                                                          prop.immune < 0,
-                                 rnorm(1, mean, sd) / population, prop.immune),
-                                 mean = mean, sd = sd, population = population),
-                          by = lower.age.limit]
-    }
-
-    first.sampler <- first.sampler[, list(lower.age.limit, prop.immune)]
-
-    limits.diff <- setdiff(lower.limits,
-                           unique(first.sampler[, lower.age.limit]))
-    if (length(limits.diff) > 0) {
-        missing.sampler <- data.table(lower.age.limit = limits.diff)
-        missing.sampler <-
-            missing.sampler[1, prop.immune := runif(1,
-                                           first.sampler[nrow(first.sampler),
-                                                         prop.immune], 1)]
-
-        if (nrow(missing.sampler > 1)) {
-            for (i in 2:nrow(missing.sampler)) {
-                missing.sampler <-
-                    missing.sampler[i, prop.immune := runif(1, missing.sampler[i - 1,
-                                                   prop.immune], 1), by = lower.age.limit]
-            }
-        }
-        first.sampler <- rbind(first.sampler, missing.sampler)
-    }
-
-    prop.susc <- first.sampler[, 1 - prop.immune]
-    names(prop.susc) <- paste("init.susc", seq_along(prop.susc), sep = ".")
-
-    return(prop.susc)
-}
-
 ##' Evaluate parameters under a prior distribution for chickenpox
 ##'
 ##' @param parameters parameters
@@ -856,149 +784,127 @@ cpx.prior <- function(parameters)
     prior
 }
 
-
-##' Sample parameters from a prior distribution for chickenpox
-##'
-##' @param fixed.parameters list fixed parameters (won't be sampled)
-##' @return sampled parameters
-##' @author Sebastian Funk
-##' @export
-sample.cpx.prior <- function(fixed.parameters = list()) {
-
-    data(cpx_ew_age)
-    parameters <- c()
-
-    if (!is.null(fixed.parameters[["mixing.dynamics"]]))
-    {
-        if (fixed.parameters[["mixing.dynamics"]] == "brownian")
-        {
-            if (!("brownian.init" %in% names(fixed.parameters)))
-            {
-                parameters[["brownian.init"]] <- runif(1, 0, 2)
-            }
-            if (!("brownian.drift" %in% names(fixed.parameters)))
-            {
-                parameters[["brownian.drift"]] <- runif(1, -0.1, 0.1)
-            }
-            if (!("brownian.scale" %in% names(fixed.parameters)))
-            {
-                parameters[["brownian.scale"]] <- runif(1, 0, 0.5)
-            }
-        } else if (fixed.parameters[["mixing.dynamics"]] == "linear")
-          {
-              if (!is.null(fixed.parameters[["mixing.knots"]]))
-              {
-                  mixing.knots <- fixed.parameters[["mixing.knots"]]
-              } else
-              {
-                  mixing.knots <- 1
-              }
-
-              for (i in seq_len(mixing.knots))
-              {
-                  param.name <- paste("mixing", i, sep = ".")
-
-                  if (!(param.name %in% names(fixed.parameters)))
-                  {
-                      parameters[[param.name]] <- runif(1, 0.5, 5)
-                  }
-              }
-
-              if (mixing.knots > 2)
-              {
-                  years <- unique(cpx.ew.age[, year])
-                  intermediate.years <- setdiff(years, c(min(years), max(years)))
-                  change.points <- sort(sample(intermediate.years, mixing.knots - 2))
-
-                  for (i in seq_along(change.points))
-                  {
-                      param.name <- paste("change", i, sep = ".")
-
-                      if (!(param.name %in% names(fixed.parameters)))
-                      {
-                          parameters[[param.name]] <- change.points[i]
-                      }
-                  }
-              }
-          }
-    }
-
-    if (!("R0" %in% names(fixed.parameters)))
-    {
-        parameters[["R0"]] <- runif(1, 1, 20)
-    }
-
-    if (!("gamma" %in% names(fixed.parameters)))
-    {
-        parameters[["gamma"]] <- runif(1, 1/(11/365.25), 1/(10/365.25))
-    }
-    if (!("rho" %in% names(fixed.parameters)))
-    {
-        parameters[["rho"]] <- runif(1, 1/(12/365.25), 1/(8/365.25))
-    }
-    if (!("underreporting" %in% names(fixed.parameters)))
-    {
-        parameters[["underreporting"]] <- runif(1, 0.1, 0.9)
-    }
-    if (!("maternal.immunity" %in% names(fixed.parameters)))
-    {
-        parameters[["maternal.immunity"]] <- runif(1, 0, 1)
-    }
-
-    parameters <- c(fixed.parameters, parameters, sample.cpx.init(fixed.parameters))
-
-    return(parameters)
-}
-
-##' Randomly sample initial conditions for measles on the basis of serology
+##' Randomly sample initial conditions for measles or chickenpox on the basis of serology
 ##'
 ##' @param parameters given (maternal immunity and mixing) parameters
+##' @param infection "measles" or "chickenpox"
 ##' @return proportion susceptible in each age group
 ##' @author Sebastian Funk
-sample.ms.init <- function(parameters) {
+sample.init <- function(parameters, infection = c("measles", "chickenpox")) {
 
-    data(ms_sero_fine_1950)
-    data(ms_ew_age)
+    infection <- match.arg(infection)
 
-    lower.limits <- agegroups.to.limits(colnames(parameters[["mixing"]]))
+    prop.susc <- c()
 
-    min.year <- ms.ew.age[, min(year)]
-    first.pop.state <- ms.ew.age[year == min.year,
-                                 list(population = mean(population)),
-                                 by = lower.age.limit]
-    first.pop.state[, lower.age.limit :=
-                           reduce.agegroups(lower.age.limit, lower.limits)]
-    first.pop.state <- first.pop.state[, list(population = sum(population)),
-                                       by = lower.age.limit]
-
-    if ("maternal.immunity" %in% names(parameters))
+    if (infection == "measles")
     {
-        maternal.immunity <- parameters[["maternal.immunity"]]
-    } else
-    {
-        maternal.immunity <- 0
+
+        data(ms_sero_fine_1950)
+        data(ms_ew_age)
+
+        lower.limits <- agegroups.to.limits(colnames(parameters[["mixing"]]))
+
+        min.year <- ms.ew.age[, min(year)]
+        first.pop.state <- ms.ew.age[year == min.year,
+                                     list(population = mean(population)),
+                                     by = lower.age.limit]
+        first.pop.state[, lower.age.limit :=
+                              reduce.agegroups(lower.age.limit, lower.limits)]
+        first.pop.state <- first.pop.state[, list(population = sum(population)),
+                                           by = lower.age.limit]
+
+        if ("maternal.immunity" %in% names(parameters))
+        {
+            maternal.immunity <- parameters[["maternal.immunity"]]
+        } else
+        {
+            maternal.immunity <- 0
+        }
+        first.serology <-
+            rbind(data.table(age = 0, immunity = maternal.immunity),
+                  ms.sero.fine)
+        setnames(first.serology, "age", "lower.age.limit")
+        first.serology[, lower.age.limit :=
+                             reduce.agegroups(lower.age.limit, lower.limits)]
+        first.serology <-
+            first.serology[, list(immunity = mean(immunity)), by = lower.age.limit]
+
+        setkey(first.serology, lower.age.limit)
+        setkey(first.pop.state, lower.age.limit)
+
+        first.serology <- merge(first.serology, first.pop.state, all.y = T)
+
+        if (max(first.serology[, lower.age.limit]) > 0)
+        {
+            max.immunity <- max(first.serology[lower.age.limit > 0, immunity], na.rm  = T)
+        }
+        first.serology <- first.serology[is.na(immunity), immunity := max.immunity]
+
+        prop.susc <- first.serology[, 1 - immunity]
+    } else if (infection == "chickenpox") {
+        data(cpx_sero)
+        data(cpx_ew_age)
+
+        lower.limits <- agegroups.to.limits(colnames(parameters[["mixing"]]))
+
+        serology <- interpolate.serology(lower.limits)
+        before.serology <- serology[year < min(cpx.ew.age[, year])]
+        max.before <- max(before.serology[, year])
+        first.serology <- before.serology[year == max.before]
+        min.year <- min(cpx.ew.age[, year])
+        first.pop.state <- cpx.ew.age[year == min.year,
+                                      list(population = mean(population)),
+                                      by = lower.age.limit]
+        first.pop.state[, lower.age.limit :=
+                              reduce.agegroups(lower.age.limit, lower.limits)]
+        first.pop.state <- first.pop.state[, list(population = sum(population)),
+                                           by = lower.age.limit]
+
+        setkey(first.serology, lower.age.limit)
+        setkey(first.pop.state, lower.age.limit)
+
+        first.serology <- merge(first.serology, first.pop.state)
+
+        first.sampler <-
+            first.serology[, list(mean = antibodies * population / samples,
+                                  sd = sqrt((population -
+                                             antibodies * population / samples) *
+                                            antibodies * population / (samples^2)*
+                                            (population - samples) /(population - 1)),
+                                  population = population,
+                                  prop.immune = -1),
+                           by = lower.age.limit]
+
+        while (any(first.sampler[, prop.immune > 1 | prop.immune < 0])) {
+            first.sampler <-
+                first.sampler[, list(prop.immune = ifelse(prop.immune > 1 |
+                                                          prop.immune < 0,
+                                                          rnorm(1, mean, sd) / population, prop.immune),
+                                     mean = mean, sd = sd, population = population),
+                              by = lower.age.limit]
+        }
+
+        first.sampler <- first.sampler[, list(lower.age.limit, prop.immune)]
+
+        limits.diff <- setdiff(lower.limits,
+                               unique(first.sampler[, lower.age.limit]))
+        if (length(limits.diff) > 0) {
+            missing.sampler <- data.table(lower.age.limit = limits.diff)
+            missing.sampler <-
+                missing.sampler[1, prop.immune := runif(1, first.sampler[nrow(first.sampler), prop.immune], 1)]
+
+            if (nrow(missing.sampler > 1)) {
+                for (i in 2:nrow(missing.sampler)) {
+                    missing.sampler <-
+                        missing.sampler[i, prop.immune := runif(1, missing.sampler[i - 1, prop.immune], 1), by = lower.age.limit]
+                }
+            }
+            first.sampler <- rbind(first.sampler, missing.sampler)
+        }
+
+        prop.susc <- first.sampler[, 1 - prop.immune]
+
     }
-    first.serology <-
-        rbind(data.table(age = 0, immunity = maternal.immunity),
-              ms.sero.fine)
-    setnames(first.serology, "age", "lower.age.limit")
-    first.serology[, lower.age.limit :=
-                         reduce.agegroups(lower.age.limit, lower.limits)]
-    first.serology <-
-        first.serology[, list(immunity = mean(immunity)), by = lower.age.limit]
-
-    setkey(first.serology, lower.age.limit)
-    setkey(first.pop.state, lower.age.limit)
-
-    first.serology <- merge(first.serology, first.pop.state, all.y = T)
-
-    if (max(first.serology[, lower.age.limit]) > 0)
-    {
-        max.immunity <- max(first.serology[lower.age.limit > 0, immunity], na.rm  = T)
-    }
-    first.serology <- first.serology[is.na(immunity), immunity := max.immunity]
-
-    prop.susc <- first.serology[, 1 - immunity]
     names(prop.susc) <- paste("init.susc", seq_along(prop.susc), sep = ".")
 
     return(prop.susc)
@@ -1036,50 +942,141 @@ ms.prior <- function(parameters) {
     return(prior)
 }
 
-##' Sample parameters from a prior distribution for measles
+##' Sample parameters from a prior distribution for measles or chickenpox
 ##'
 ##' @param mixing given mixing matrix, if this is not to sample
-##' @param R0 given R0 value, if this is not to sample
+##' @param infection "measles" or "chickenpox"
 ##' @return prior parameters
 ##' @author Sebastian Funk
 ##' @export
-sample.ms.prior <- function(fixed.parameters = list()) {
+sample.prior <- function(fixed.parameters = list(), infection = c("measles", "chickenpox"))
+{
 
-    data(ms_ew_age)
-    parameters <- c()
+    infection <- match.arg(infection)
 
-    if (!("R0" %in% names(fixed.parameters)))
+    parameters <- fixed.parameters
+
+    if (infection == "measles")
     {
-        parameters[["R0"]] <- runif(1, 1, 30)
+        data(ms_ew_age)
+
+        if (!("R0" %in% names(fixed.parameters)))
+        {
+            parameters[["R0"]] <- runif(1, 1, 30)
+        }
+
+        if (!("gamma" %in% names(fixed.parameters)))
+        {
+            parameters[["gamma"]] <- runif(1, 1/(7/365.25), 1/(6/365.25))
+        }
+
+        if (!("rho" %in% names(fixed.parameters)))
+        {
+            parameters[["rho"]] <- runif(1, 1/(7/365.25), 1/(6/365.25))
+        }
+
+        if (!("underreporting" %in% names(fixed.parameters)))
+        {
+            parameters[["underreporting"]] <- runif(1, 0.1, 0.9)
+        }
+
+        if ("child.mixing.group" %in% names(fixed.parameters) &
+            !("child.mixing" %in% names(fixed.parameters)))
+        {
+            parameters[["child.mixing"]] <- runif(1, 0.5, 2)
+        }
+
+        if (!("maternal.immunity" %in% names(fixed.parameters)))
+        {
+            parameters[["maternal.immunity"]] <- runif(1, 0, 1)
+        }
+
+    } else if (infection == "chickenpox")
+    {
+        data(cpx_ew_age)
+
+        if (!is.null(fixed.parameters[["mixing.dynamics"]]))
+        {
+            if (fixed.parameters[["mixing.dynamics"]] == "brownian")
+            {
+                if (!("brownian.init" %in% names(fixed.parameters)))
+                {
+                    parameters[["brownian.init"]] <- runif(1, 0, 2)
+                }
+                if (!("brownian.drift" %in% names(fixed.parameters)))
+                {
+                    parameters[["brownian.drift"]] <- runif(1, -0.1, 0.1)
+                }
+                if (!("brownian.scale" %in% names(fixed.parameters)))
+                {
+                    parameters[["brownian.scale"]] <- runif(1, 0, 0.5)
+                }
+            } else if (fixed.parameters[["mixing.dynamics"]] == "linear")
+            {
+                if (!is.null(fixed.parameters[["mixing.knots"]]))
+                {
+                    mixing.knots <- fixed.parameters[["mixing.knots"]]
+                } else
+                {
+                    mixing.knots <- 1
+                }
+
+                for (i in seq_len(mixing.knots))
+                {
+                    param.name <- paste("mixing", i, sep = ".")
+
+                    if (!(param.name %in% names(fixed.parameters)))
+                    {
+                        parameters[[param.name]] <- runif(1, 0.5, 5)
+                    }
+                }
+
+                if (mixing.knots > 2)
+                {
+                    years <- unique(cpx.ew.age[, year])
+                    intermediate.years <-
+                        setdiff(years, c(min(years), max(years)))
+                    change.points <-
+                        sort(sample(intermediate.years, mixing.knots - 2))
+
+                    for (i in seq_along(change.points))
+                    {
+                        param.name <- paste("change", i, sep = ".")
+
+                        if (!(param.name %in% names(fixed.parameters)))
+                        {
+                            parameters[[param.name]] <- change.points[i]
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!("R0" %in% names(fixed.parameters)))
+        {
+            parameters[["R0"]] <- runif(1, 1, 20)
+        }
+
+        if (!("gamma" %in% names(fixed.parameters)))
+        {
+            parameters[["gamma"]] <- runif(1, 1/(11/365.25), 1/(10/365.25))
+        }
+        if (!("rho" %in% names(fixed.parameters)))
+        {
+            parameters[["rho"]] <- runif(1, 1/(12/365.25), 1/(8/365.25))
+        }
+        if (!("underreporting" %in% names(fixed.parameters)))
+        {
+            parameters[["underreporting"]] <- runif(1, 0.1, 0.9)
+        }
+        if (!("maternal.immunity" %in% names(fixed.parameters)))
+        {
+            parameters[["maternal.immunity"]] <- runif(1, 0, 1)
+        }
     }
 
-    if (!("gamma" %in% names(fixed.parameters)))
-    {
-        parameters[["gamma"]] <- runif(1, 1/(7/365.25), 1/(6/365.25))
-    }
-    
-    if (!("rho" %in% names(fixed.parameters)))
-    {
-        parameters[["rho"]] <- runif(1, 1/(7/365.25), 1/(6/365.25))
-    }
-    
-    if (!("underreporting" %in% names(fixed.parameters)))
-    {
-        parameters[["underreporting"]] <- runif(1, 0.1, 0.9)
-    }
-    
-    if ("child.mixing.group" %in% names(fixed.parameters) &
-        !("child.mixing" %in% names(fixed.parameters)))
-    {
-        parameters[["child.mixing"]] <- runif(1, 0.5, 2)
-    }
-    
-    if (!("maternal.immunity" %in% names(fixed.parameters)))
-    {
-        parameters[["maternal.immunity"]] <- runif(1, 0, 1)
-    }
-
-    parameters <- c(fixed.parameters, parameters, sample.ms.init(fixed.parameters))
+    parameters <- c(parameters,
+                    sample.init(fixed.parameters, infection))
 
     return(parameters)
 }
