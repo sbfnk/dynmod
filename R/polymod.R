@@ -22,7 +22,7 @@ sample.contact.matrix <- function(participants,
                                   symmetry = F)
 {
     ## clean participant data of age NAs
-  if (nrow(participants[is.na(get(part.age.column))]) > 0) {
+    if (nrow(participants[is.na(get(part.age.column))]) > 0) {
         warning("removing participants without age")
     }
     participants <- participants[!is.na(get(part.age.column))]
@@ -67,29 +67,30 @@ sample.contact.matrix <- function(participants,
 
     ## calculate weighted contact matrix
     weighted.matrix <- xtabs(data = contacts.sample,
-                             formula = weight ~ agegroup + cnt.agegroup)
+                             formula = weight ~ cnt.agegroup + agegroup)
     ## calculate normalisation vector
     norm.vector <- xtabs(data = part.sample, formula = weight ~ agegroup)
 
     ## normalise contact matrix
-    weighted.matrix <- as.matrix(apply(weighted.matrix, 2, function(x) { x / norm.vector} ))
-
+    weighted.matrix <- t(apply(weighted.matrix, 1, function(x) { x / norm.vector} ))
     ## get rid of name but preserve row and column names
     cols <- rownames(weighted.matrix)
     weighted.matrix <- unname(weighted.matrix)
 
     if (symmetry & prod(dim(as.matrix(weighted.matrix))) > 1) {
-        normalised.weighted.matrix <- apply(weighted.matrix, 2,
-                                              function(x) { x * ages$population })
-        weighted.matrix <- apply(0.5 * (normalised.weighted.matrix +
+        ## set C_{ij} N_j and C_{ji} N_i (which should both be equal) to
+        ## 0.5 * their sum; then C_{ij} is that sum / N_j
+        normalised.weighted.matrix <- t(apply(weighted.matrix, 1,
+                                              function(x) { x * ages$population }))
+        weighted.matrix <- t(apply(0.5 * (normalised.weighted.matrix +
                                               t(normalised.weighted.matrix)),
-                                   2, function(x) { x / ages$population })
+                                   1, function(x) { x / ages$population }))
     }
 
     rownames(weighted.matrix) <- cols
     colnames(weighted.matrix) <- cols
 
-    weighted.matrix
+    return(weighted.matrix)
 }
 
 ##' samples a contact matrix using weights following Baguelin et al. (2013), but
@@ -121,7 +122,7 @@ sample.contacts.and.matrix <- function(participants,
                                        n = 1)
 {
 
-    matrix.sum <- NULL
+  matrix.sum <- NULL
     matrix.sqsum <- NULL
     for (i in 1:n) {
         sample.contacts <- data.table(contacts)
@@ -174,12 +175,13 @@ sample.contacts.and.matrix <- function(participants,
 ##' @param countries limit to one or more countries
 ##' @param mixing.pop mixing population -- either a data frame with columns lower.age.limit and population, or a character vector giving the name(s) to use with the 2013 WHO population
 ##' @param normalise whether to normalise to eigenvalue 1
+##' @param split whether to split the number of contacts and assortativity
 ##' @param ... further parameters are passed to
 ##' \code{sample.contacts.and.matrix}
 ##' @return sampled contact matrix as return by \code{sample.contacts.and.matrix}
 ##' @export
 ##' @author Sebastian Funk
-sample.polymod <- function(age.limits, countries = NULL, mixing.pop = NULL, normalise = FALSE, ...)
+sample.polymod <- function(age.limits, countries = NULL, mixing.pop = NULL, normalise = FALSE, split = FALSE, ...)
 {
     data(pop_ew_age)
     data(pop_world_age)
@@ -219,7 +221,17 @@ sample.polymod <- function(age.limits, countries = NULL, mixing.pop = NULL, norm
         m <- m / eigen(m, only.values = TRUE)$values[1]
     }
 
-    return(list(matrix = m, demo = ages))
+    res <- list()
+    if (split)
+    {
+        contacts <- apply(m, 2, sum)
+        m <- t(t(m / ages$population) / contacts)
+        res[["contacts"]] <- contacts
+    }
+
+    res <- c(res, list(matrix = m, demo = ages))
+
+    return(res)
 }
 
 ##' calculates the age distribution in an endemic setting using the iterative method
