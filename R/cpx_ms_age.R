@@ -438,8 +438,8 @@ ew.pop.parameters <- function(age.limits, year.limits = NULL, interpolate = FALS
             data.table(year = years,
                        value = deaths.ew[year >= min(year.limits) & year <= max(year.limits), deaths])
         parameters[["ageing"]] <-
-            data.table(age = c(0, seq_along(parameters[["ageing"]])),
-                       value = c(parameters[["ageing"]], 0))
+          data.table(age = limits.to.agegroups(age.limits), 
+                     value = c(parameters[["ageing"]], 0))
 
         setkey(parameters[["births"]], year)
         setkey(parameters[["deaths"]], year)
