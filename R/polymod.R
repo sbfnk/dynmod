@@ -16,10 +16,10 @@ sample.contact.matrix <- function(participants,
                                   contacts,
                                   ages,
                                   part.age.column = "participant_age",
-                                  contact.age.column = "contact_age",
+                                  contact.age.column = "cnt_age_mean",
                                   id.column = "global_id",
                                   add.weights = c(),
-                                  symmetry = F)
+                                  symmetry = FALSE)
 {
     ## clean participant data of age NAs
     if (nrow(participants[is.na(get(part.age.column))]) > 0) {
@@ -28,14 +28,15 @@ sample.contact.matrix <- function(participants,
     participants <- participants[!is.na(get(part.age.column))]
 
     max.age <- min(max(participants[, get(part.age.column)]),
-                   max(contacts[, get(contact.age.column)]))
+                   max(contacts[, get(contact.age.column)], na.rm = TRUE))
 
     ages <- ages[lower.age.limit < max.age]
+    ages[, upper.age.limit := c(ages$lower.age.limit[-1], max.age)]
 
     ## assign age group to participants
     participants[, agegroup := cut(participants[, get(part.age.column)],
                             breaks = c(unique(ages$lower.age.limit), max.age),
-                            right = F)]
+                            right = FALSE)]
 
     ## get number of participants in each age group
     participants.age <- unname(table(participants[, agegroup]))
@@ -52,11 +53,17 @@ sample.contact.matrix <- function(participants,
     ##  part.sample[, weight := apply(part.sample, 1, weight.func)]
 
     ## gather contacts for sampled participants
-    contacts.sample <- data.table(merge(contacts, part.sample, by = "global_id",
+    contacts.sample <- data.table(merge(contacts, part.sample, by = id.column,
                                         all = F, allow.cartesian = T))
-    contacts.sample[, cnt.agegroup := cut(contacts.sample[, get(contact.age.column)],
-                                   breaks = c(unique(ages$lower.age.limit), max.age),
-                                   right = F)]
+    for (this.agegroup in unique(contacts.sample[is.na(get(contact.age.column)), agegroup]))
+    {
+        contacts.sample[is.na(get(contact.age.column)) & agegroup == this.agegroup,
+                        paste(contact.age.column) := sample(contacts.sample[!is.na(get(contact.age.column)) & agegroup == this.agegroup, get(contact.age.column)], size = .N, replace = TRUE)]
+    }
+    ## age groups
+    contacts.sample[, cnt.agegroup := cut(get(contact.age.column),
+                            breaks = c(unique(ages$lower.age.limit), max.age),
+                            right = FALSE)]
 
     ## further weigh contacts if columns are specified
     if (length(add.weights) > 0) {
@@ -103,50 +110,42 @@ sample.contact.matrix <- function(participants,
 ##' @param ages age groups
 ##' @param part.age.column column indicating age in participant data
 ##' @param contact.age.column column indicating age in contact data
-##' @param id.column column matching participants and contacts
 ##' @param add.weights additional weight columns (e.g., minutes etc.)
 ##' @param symmetry make contact matrix symmetric
 ##' @param n number of matrices to sample; if > 1, standard deviation
 ##' is reported as well as means
+##' @param ... parameters to pass to sample.contact.matrix
 ##' @return contact matrix (means and, if n > 1, standard deviation)
 ##' @export
 ##' @author Sebastian Funk
-sample.contacts.and.matrix <- function(participants,
-                                       contacts,
-                                       ages,
-                                       part.age.column = "participant_age",
-                                       contact.age.column = "contact_age",
-                                       id.column = "global_id",
-                                       add.weights = c(),
-                                       symmetry = F,
-                                       n = 1)
+sample.contacts.and.matrix <- function(n = 1, ...)
 {
 
-  matrix.sum <- NULL
+    matrix.sum <- NULL
     matrix.sqsum <- NULL
     for (i in 1:n) {
-        sample.contacts <- data.table(contacts)
-        sample.contacts <- sample.contacts[, contact_age := cnt_age_mean]
-        sample.contacts <-
-            sample.contacts[, contact_id := seq(1, nrow(sample.contacts))]
+        ## sample.contacts <- data.table(contacts)
+        ## sample.contacts <- sample.contacts[, contact_age := cnt_age_mean]
+        ## sample.contacts <-
+        ##     sample.contacts[, contact_id := seq(1, nrow(sample.contacts))]
 
         ## if an age range is reported, we take a random sample from that range
-        sample.contacts <-
-            sample.contacts[!is.na(cnt_age_l) & !is.na(cnt_age_r),
-                            contact_age := sample(seq(cnt_age_l, cnt_age_r), 1),
-                            by = contact_id]
+        ## if (all(c("cnt_age_l", "cnt_age_r") %in% colnames(sample.contacts)))
+        ## {
+        ##     sample.contacts <-
+        ##         sample.contacts[!is.na(cnt_age_l) & !is.na(cnt_age_r),
+        ##                         contact_age := sample(seq(cnt_age_l, cnt_age_r), 1),
+        ##                         by = contact_id]
+        ## }
 
-        ## if no age is reported, we take a random sample from the population
-        sample.contacts <-
-            sample.contacts[is.na(contact_age),
-                            contact_age := as.integer(round(sample(ages[, lower.age.limit],
-                                        length(contact_id), replace = T,
-                                        prob = ages[, population])))]
+        ## ## if no age is reported, we take a random sample from the population
+        ## sample.contacts <-
+        ##     sample.contacts[is.na(contact_age),
+        ##                     contact_age := as.integer(round(sample(ages[, lower.age.limit],
+        ##                                 length(contact_id), replace = T,
+        ##                                 prob = ages[, population])))]
 
-        contact.matrix <- sample.contact.matrix(participants,
-                                                sample.contacts,
-                                                ages,
-                                                symmetry = T)
+        contact.matrix <- sample.contact.matrix(...)
         if (is.null(matrix.sum))
         {
             matrix.sum <- matrix(0, nrow = nrow(contact.matrix),
@@ -174,6 +173,7 @@ sample.contacts.and.matrix <- function(participants,
 ##' @param age.limits Lower limits of the age groups
 ##' @param countries limit to one or more countries
 ##' @param mixing.pop mixing population -- either a data frame with columns lower.age.limit and population, or a character vector giving the name(s) to use with the 2013 WHO population
+##' @param survey a list of 'participants' and 'contacts' to sample from
 ##' @param normalise whether to normalise to eigenvalue 1
 ##' @param split whether to split the number of contacts and assortativity
 ##' @param ... further parameters are passed to
@@ -181,40 +181,59 @@ sample.contacts.and.matrix <- function(participants,
 ##' @return sampled contact matrix as return by \code{sample.contacts.and.matrix}
 ##' @export
 ##' @author Sebastian Funk
-sample.polymod <- function(age.limits, countries = NULL, mixing.pop = NULL, normalise = FALSE, split = FALSE, ...)
+sample.polymod <- function(age.limits, countries, mixing.pop, survey, normalise = FALSE, split = FALSE, ...)
 {
+
     data(pop_ew_age)
     data(pop_world_age)
     data(polymod)
 
-    if (is.null(countries))
+    if (missing(countries))
     {
-        countries <- unique(polymod$participants$country)
+        if (missing(survey))
+        {
+            countries <- unique(polymod$participants$country)
+        } else {
+            countries <- " Aggregated"
+        }
     }
 
-    if (length(countries) == 1 && countries[1] == c("United Kingdom") && is.null(mixing.pop))
+    if (missing(mixing.pop))
     {
-        ## sample contact matrix using 2006 population data
-        mixing.pop <- pop.ew.age[year == 2006]
-    } else
-    {
-        if (is.null(mixing.pop))
+        if (!missing(countries) && length(countries) == 1 && countries == c("United Kingdom"))
+        {
+            ## sample contact matrix using 2006 population data
+            mixing.pop <- pop.ew.age[year == 2006]
+        } else
         {
             mixing.pop <- pop.world.age[country %in% countries]
             setnames(mixing.pop, "both.sexes.population", "population")
-        } else if (is.character(mixing.pop))
-          {
-              mixing.pop <- pop.world.age[country %in% mixing.pop]
-              setnames(mixing.pop, "both.sexes.population", "population")
-          }
+        }
+    } else if (is.character(mixing.pop))
+    {
+        mixing.pop <- pop.world.age[country %in% mixing.pop]
+        setnames(mixing.pop, "both.sexes.population", "population")
+    }
+
+    if (missing(survey))
+    {
+        survey <- list(participtants =
+                           polymod$participants[country %in% countries],
+                       contacts =
+                           polymod$contacts[country %in% countries])
+    } else
+    {
+        if (!is.list(survey) || is.null(names(survey)) || !(all(names(survey) %in% c("participants", "contacts"))))
+        {
+            stop("if given, 'survey' must be a named list with elements named 'participants' and 'contacts'")
+        }
     }
 
     ages <- mixing.pop
     ages[, lower.age.limit := reduce.agegroups(lower.age.limit, age.limits)]
     ages <- ages[, list(population = sum(population)), by = lower.age.limit]
 
-    m <- sample.contacts.and.matrix(polymod$participants[country %in% countries],
-                                    polymod$contacts[country %in% countries],
+    m <- sample.contacts.and.matrix(survey$participants, survey$contacts, 
                                     ages, ...)
     if (normalise)
     {
