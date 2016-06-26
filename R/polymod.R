@@ -15,7 +15,7 @@
 sample.contact.matrix <- function(participants,
                                   contacts,
                                   ages,
-                                  part.age.column = "participant_age",
+                                  part.age.column, 
                                   contact.age.column = "cnt_age_mean",
                                   id.column = "global_id",
                                   add.weights = c(),
@@ -103,16 +103,8 @@ sample.contact.matrix <- function(participants,
 ##' samples a contact matrix using weights following Baguelin et al. (2013), but
 ##' using a bootstrap; first, contacts and ages are sampled
 ##'
-##'
 ##' restriction: largest agegroup must not be larger than 90
-##' @param participants participant data
-##' @param contacts contact data
-##' @param ages age groups
-##' @param part.age.column column indicating age in participant data
-##' @param contact.age.column column indicating age in contact data
-##' @param add.weights additional weight columns (e.g., minutes etc.)
-##' @param symmetry make contact matrix symmetric
-##' @param n number of matrices to sample; if > 1, standard deviation
+##' ##' @param n number of matrices to sample; if > 1, standard deviation
 ##' is reported as well as means
 ##' @param ... parameters to pass to sample.contact.matrix
 ##' @return contact matrix (means and, if n > 1, standard deviation)
@@ -172,8 +164,9 @@ sample.contacts.and.matrix <- function(n = 1, ...)
 ##' restriction: largest agegroup must not be larger than 90
 ##' @param age.limits Lower limits of the age groups
 ##' @param countries limit to one or more countries
-##' @param mixing.pop mixing population -- either a data frame with columns lower.age.limit and population, or a character vector giving the name(s) to use with the 2013 WHO population
+##' @param mixing.pop mixing population -- either a data frame with columns lower.age.limit and population, or a character vector giving the name(s) to use with the 2013 WHO population; if not given, will use the survey population if 'survey' is given, or the country populations from the desired countries (or all POLYMOD countries if not countries are given)
 ##' @param survey a list of 'participants' and 'contacts' to sample from
+##' @param part.age.column the column in which participants' age is recorded 
 ##' @param normalise whether to normalise to eigenvalue 1
 ##' @param split whether to split the number of contacts and assortativity
 ##' @param ... further parameters are passed to
@@ -181,42 +174,20 @@ sample.contacts.and.matrix <- function(n = 1, ...)
 ##' @return sampled contact matrix as return by \code{sample.contacts.and.matrix}
 ##' @export
 ##' @author Sebastian Funk
-sample.polymod <- function(age.limits, countries, mixing.pop, survey, normalise = FALSE, split = FALSE, ...)
+sample.polymod <- function(age.limits, countries, mixing.pop, survey, part.age.column = "participant_age", normalise = FALSE, split = FALSE, ...)
 {
 
     data(pop_ew_age)
     data(pop_world_age)
     data(polymod)
 
-    if (missing(countries))
-    {
-        if (missing(survey))
-        {
-            countries <- unique(polymod$participants$country)
-        } else {
-            countries <- " Aggregated"
-        }
-    }
-
-    if (missing(mixing.pop))
-    {
-        if (!missing(countries) && length(countries) == 1 && countries == c("United Kingdom"))
-        {
-            ## sample contact matrix using 2006 population data
-            mixing.pop <- pop.ew.age[year == 2006]
-        } else
-        {
-            mixing.pop <- pop.world.age[country %in% countries]
-            setnames(mixing.pop, "both.sexes.population", "population")
-        }
-    } else if (is.character(mixing.pop))
-    {
-        mixing.pop <- pop.world.age[country %in% mixing.pop]
-        setnames(mixing.pop, "both.sexes.population", "population")
-    }
-
     if (missing(survey))
     {
+        if (missing(countries))
+        {
+            countries <- unique(polymod$participants$country)
+        }
+
         survey <- list(participtants =
                            polymod$participants[country %in% countries],
                        contacts =
@@ -229,9 +200,34 @@ sample.polymod <- function(age.limits, countries, mixing.pop, survey, normalise 
         }
     }
 
+    if (missing(mixing.pop))
+    {
+        if (missing(countries))
+        {
+            mixing.pop <- survey$participants[, list(population = .N), by = part.age.column][!is.na(participant_age)]
+            setnames(mixing.pop, "participant_age", "lower.age.limit")
+        } else
+        {
+            if (length(countries) == 1 && countries == c("United Kingdom"))
+            {
+                ## sample contact matrix using 2006 population data
+                mixing.pop <- pop.ew.age[year == 2006]
+            } else
+            {
+                mixing.pop <- pop.world.age[country %in% countries]
+                setnames(mixing.pop, "both.sexes.population", "population")
+            }
+        }
+    } else if (is.character(mixing.pop))
+    {
+        mixing.pop <- pop.world.age[country %in% mixing.pop]
+        setnames(mixing.pop, "both.sexes.population", "population")
+    }
+
     ages <- mixing.pop
     ages[, lower.age.limit := reduce.agegroups(lower.age.limit, age.limits)]
     ages <- ages[, list(population = sum(population)), by = lower.age.limit]
+    setkey(ages, lower.age.limit)
 
     m <- sample.contacts.and.matrix(survey$participants, survey$contacts, 
                                     ages, ...)
