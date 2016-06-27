@@ -8,6 +8,7 @@
 ##' @param part.age.column column indicating age in participant data
 ##' @param contact.age.column column indicating age in contact data
 ##' @param id.column column to match participants with contacts
+##' @param dayofweek.column column indicating the day of the week
 ##' @param add.weights additional weight columns (e.g., minutes etc
 ##' @param symmetry make contact matrix symmetric
 ##' @return age-based mixing matrix
@@ -15,19 +16,22 @@
 sample.contact.matrix <- function(participants,
                                   contacts,
                                   ages,
-                                  part.age.column, 
+                                  part.age.column,
                                   contact.age.column = "cnt_age_mean",
                                   id.column = "global_id",
+                                  dayofweek.column = "dayofweek",
                                   add.weights = c(),
                                   symmetry = FALSE)
 {
     ## clean participant data of age NAs
+    participants <- data.table(participants)
+    contacts <- data.table(contacts)
     if (nrow(participants[is.na(get(part.age.column))]) > 0) {
         warning("removing participants without age")
     }
     participants <- participants[!is.na(get(part.age.column))]
 
-    max.age <- min(max(participants[, get(part.age.column)]),
+    max.age <- max(max(participants[, get(part.age.column)]),
                    max(contacts[, get(contact.age.column)], na.rm = TRUE))
 
     ages <- ages[lower.age.limit < max.age]
@@ -47,9 +51,15 @@ sample.contact.matrix <- function(participants,
     ## assign weights to participants, to account for weekend/weekday
     ## variation
 
-    part.sample[dayofweek %in% 1:5, weight := 5 / nrow(part.sample[dayofweek %in% 1:5])]
-    part.sample[!(dayofweek %in% 1:5),
-                weight := 2 / nrow(part.sample[!(dayofweek %in% 1:5)])]
+    if (dayofweek.column %in% colnames(part.sample))
+    {
+        part.sample[get(dayofweek.column) %in% 1:5, weight := 5 / nrow(part.sample[get(dayofweek.column) %in% 1:5])]
+        part.sample[!(get(dayofweek.column) %in% 1:5),
+                    weight := 2 / nrow(part.sample[!(get(dayofweek.column) %in% 1:5)])]
+    } else
+    {
+        part.sample[, weight := 1]
+    }
     ##  part.sample[, weight := apply(part.sample, 1, weight.func)]
 
     ## gather contacts for sampled participants
@@ -199,14 +209,15 @@ sample.polymod <- function(age.limits, countries, mixing.pop, survey, part.age.c
         {
             stop("if given, 'survey' must be a named list with elements named 'participants' and 'contacts'")
         }
+        survey <- lapply(survey, data.table)
     }
 
     if (missing(mixing.pop))
     {
         if (missing(countries))
         {
-            mixing.pop <- survey$participants[, list(population = .N), by = part.age.column][!is.na(participant_age)]
-            setnames(mixing.pop, "participant_age", "lower.age.limit")
+            mixing.pop <- survey$participants[, list(population = .N), by = part.age.column][!is.na(get(part.age.column))]
+            setnames(mixing.pop, part.age.column, "lower.age.limit")
         } else
         {
             if (length(countries) == 1 && countries == c("United Kingdom"))
@@ -235,7 +246,7 @@ sample.polymod <- function(age.limits, countries, mixing.pop, survey, part.age.c
                                     ages = ages,
                                     part.age.column = part.age.column,
                                     ...)
-    if (normalise)
+    if (normalise & !any(is.na(m)))
     {
         m <- m / eigen(m, only.values = TRUE)$values[1]
     }
