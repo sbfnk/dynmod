@@ -106,6 +106,7 @@ sample.contact.matrix <- function(participants,
 ##' restriction: largest agegroup must not be larger than 90
 ##' ##' @param n number of matrices to sample; if > 1, standard deviation
 ##' is reported as well as means
+##' @param n number of samples
 ##' @param ... parameters to pass to sample.contact.matrix
 ##' @return contact matrix (means and, if n > 1, standard deviation)
 ##' @export
@@ -115,7 +116,7 @@ sample.contacts.and.matrix <- function(n = 1, ...)
 
     matrix.sum <- NULL
     matrix.sqsum <- NULL
-    for (i in 1:n) {
+    for (i in seq_len(n)) {
         ## sample.contacts <- data.table(contacts)
         ## sample.contacts <- sample.contacts[, contact_age := cnt_age_mean]
         ## sample.contacts <-
@@ -188,7 +189,7 @@ sample.polymod <- function(age.limits, countries, mixing.pop, survey, part.age.c
             countries <- unique(polymod$participants$country)
         }
 
-        survey <- list(participtants =
+        survey <- list(participants =
                            polymod$participants[country %in% countries],
                        contacts =
                            polymod$contacts[country %in% countries])
@@ -229,8 +230,11 @@ sample.polymod <- function(age.limits, countries, mixing.pop, survey, part.age.c
     ages <- ages[, list(population = sum(population)), by = lower.age.limit]
     setkey(ages, lower.age.limit)
 
-    m <- sample.contacts.and.matrix(survey$participants, survey$contacts, 
-                                    ages, ...)
+    m <- sample.contacts.and.matrix(participants = survey$participants,
+                                    contacts = survey$contacts,
+                                    ages = ages,
+                                    part.age.column = part.age.column,
+                                    ...)
     if (normalise)
     {
         m <- m / eigen(m, only.values = TRUE)$values[1]
