@@ -11,8 +11,9 @@ plot_mixing_vacc_ages(ext = NA, classic.life.expectancy = 80,
 \arguments{
 \item{ext}{plot extensions}
 
-\item{classic.life.expectancy}{life expectancy in the "classic" model
-E@param kids.mult mixing multiplier for children}
+\item{classic.life.expectancy}{life expectancy in the "classic" model}
+
+\item{kids.mult}{mixing multiplier for children}
 
 \item{max.age}{maximum age}
 }

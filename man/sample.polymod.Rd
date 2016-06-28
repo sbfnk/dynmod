@@ -5,17 +5,24 @@
 \title{samples polymod using weights following Baguelin et al. (2013), but
 using a bootstrap; first, contacts and ages are sampled}
 \usage{
-sample.polymod(age.limits, countries = NULL, mixing.pop = NULL,
-  normalise = FALSE, ...)
+sample.polymod(age.limits, countries, mixing.pop, survey,
+  part.age.column = "participant_age", normalise = FALSE, split = FALSE,
+  ...)
 }
 \arguments{
 \item{age.limits}{Lower limits of the age groups}
 
 \item{countries}{limit to one or more countries}
 
-\item{mixing.pop}{mixing population -- either a data frame with columns lower.age.limit and population, or a character vector giving the name(s) to use with the 2013 WHO population}
+\item{mixing.pop}{mixing population -- either a data frame with columns lower.age.limit and population, or a character vector giving the name(s) to use with the 2013 WHO population; if not given, will use the survey population if 'survey' is given, or the country populations from the desired countries (or all POLYMOD countries if not countries are given)}
+
+\item{survey}{a list of 'participants' and 'contacts' to sample from}
+
+\item{part.age.column}{the column in which participants' age is recorded}
 
 \item{normalise}{whether to normalise to eigenvalue 1}
+
+\item{split}{whether to split the number of contacts and assortativity}
 
 \item{...}{further parameters are passed to
 \code{sample.contacts.and.matrix}}

@@ -6,13 +6,13 @@
 loadBryanData <- function(path) {
 
     load("ewm")
-    
+
     ms.ew.4494 <- ewM4494
     times <- as.numeric(rownames(ms.ew.4494)) + 1900
     years <- ceiling(times)
     weeks <- sapply(unique(years), function(x) sum(times > (x - 1) & times <= x))
     weeks <- unlist(sapply(weeks, function(x) rep(x, x)))
-    
+
     ms.ew.4494$time <- parse_date_time(paste((years - 1), round((times - years + 1) * weeks), 1, sep = "-"), "%Y %W %w")
     setnames(ms.ew.4494, "rn", "time")
     ms.ew.4494[, time := as.numeric(as.character(time)) + 1900]
@@ -41,8 +41,6 @@ loadBryanData <- function(path) {
 ##' @author Sebastian Funk
 ##' @import reshape2
 loadMeaslesEWAge <- function(path) {
-
-    try_require("reshape2")
 
     ## bands into which we have the data split
     yearbands <- c("4455", "5675", "7685", "8686", "8792", "9394", "9597")
@@ -281,8 +279,6 @@ loadMeaslesEurope <- function(path) {
 ##' @author Sebastian Funk
 ##' @import lubridate
 loadMeaslesWHO <- function(path) {
-
-    try_require("lubridate")
 
     ## denominator for the relative incidence data
     denominator <- 1e+5
@@ -783,8 +779,6 @@ loadMeaslesEWConfirmation <- function(path) {
 ##' @import reshape2
 loadPopulationEWAge <- function(path, mult.factor = 1000) {
 
-    try_require("reshape2")
-
     countries <- c("england", "wales")
 
     ## first dataset
@@ -1014,9 +1008,6 @@ loadPolymod <- function(path) {
 ##' @import maptools ggplot2
 loadEuropeanMaps <- function(shapePath) {
 
-    try_require("maptools")
-    try_require("ggplot2")
-
     ## prepare map of Europe
     europe.shape <-
         readShapePoly(paste(shapePath, "/NUTS_RG_60M_2010.shp", sep = ""))
@@ -1077,8 +1068,6 @@ loadMMREuropeTimings <- function(path) {
 loadWorldMeaslesData <- function(path) {
     ## read in world measles data
 
-    try_require("XLConnect")
-
     incidence.workbook <- loadWorkbook(paste(path, "/who_incidence.xls", sep = ""),
                                        create = FALSE)
     ms.world <- data.table(readWorksheet(incidence.workbook, "Measles"))
@@ -1103,8 +1092,6 @@ loadWorldMeaslesData <- function(path) {
 ##' @author Sebastian Funk
 loadSIAData <- function(path)
 {
-
-    try_require("XLConnect")
 
     sia.workbook <-
         loadWorkbook(paste(path, "/RVC-vaccination-info-from-JRF-WHO-HQ.xlsx",
@@ -1162,8 +1149,6 @@ loadSIAData <- function(path)
 ##' @author Sebastian Funk
 loadRVCVaccinationData <- function(path)
 {
-    try_require("XLConnect")
-
     rvc.workbook <-
         loadWorkbook(paste(path, "/Historical-coverages-reported-to-RVC_28_10.xlsx",
                            sep = ""))
@@ -1225,8 +1210,6 @@ loadRVCVaccinationData <- function(path)
 ##' @author Sebastian Funk
 loadWorldPopulationProspectData <- function(path)
 {
-    try_require("XLConnect")
-
     sheets <- getSheets(wpp.workbook)
     sheets <- setdiff(sheets, "NOTES")
 

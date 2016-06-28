@@ -5,9 +5,9 @@
 \title{Samples contact patterns to get an age-based contact matrix using
 weights following Baguelin et al. (2013), but using a bootstrap}
 \usage{
-sample.contact.matrix(participants, contacts, ages,
-  part.age.column = "participant_age", contact.age.column = "contact_age",
-  id.column = "global_id", add.weights = c(), symmetry = F)
+sample.contact.matrix(participants, contacts, ages, part.age.column,
+  contact.age.column = "cnt_age_mean", id.column = "global_id",
+  dayofweek.column = "dayofweek", add.weights = c(), symmetry = FALSE)
 }
 \arguments{
 \item{participants}{participant data}
@@ -21,6 +21,8 @@ sample.contact.matrix(participants, contacts, ages,
 \item{contact.age.column}{column indicating age in contact data}
 
 \item{id.column}{column to match participants with contacts}
+
+\item{dayofweek.column}{column indicating the day of the week}
 
 \item{add.weights}{additional weight columns (e.g., minutes etc}
 

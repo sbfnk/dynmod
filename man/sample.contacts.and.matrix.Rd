@@ -5,35 +5,20 @@
 \title{samples a contact matrix using weights following Baguelin et al. (2013), but
 using a bootstrap; first, contacts and ages are sampled}
 \usage{
-sample.contacts.and.matrix(participants, contacts, ages,
-  part.age.column = "participant_age", contact.age.column = "contact_age",
-  id.column = "global_id", add.weights = c(), symmetry = F, n = 1)
+sample.contacts.and.matrix(n = 1, ...)
 }
 \arguments{
-\item{participants}{participant data}
+\item{n}{number of samples}
 
-\item{contacts}{contact data}
-
-\item{ages}{age groups}
-
-\item{part.age.column}{column indicating age in participant data}
-
-\item{contact.age.column}{column indicating age in contact data}
-
-\item{id.column}{column matching participants and contacts}
-
-\item{add.weights}{additional weight columns (e.g., minutes etc.)}
-
-\item{symmetry}{make contact matrix symmetric}
-
-\item{n}{number of matrices to sample; if > 1, standard deviation
-is reported as well as means}
+\item{...}{parameters to pass to sample.contact.matrix}
 }
 \value{
 contact matrix (means and, if n > 1, standard deviation)
 }
 \description{
 restriction: largest agegroup must not be larger than 90
+##' @param n number of matrices to sample; if > 1, standard deviation
+is reported as well as means
 }
 \author{
 Sebastian Funk
