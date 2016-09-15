@@ -255,8 +255,10 @@ sample.polymod <- function(age.limits, countries, mixing.pop, survey, part.age.c
     if (split)
     {
         contacts <- apply(m, 2, sum)
-        m <- t(t(m / ages$population) / contacts)
+        age_proportions <- ages$population / sum(ages$population)
+        m <- t(t(m / age_proportions) / contacts)
         res[["contacts"]] <- contacts
+        res[["age_proportions"]] <- age_proportions
     }
 
     res <- c(res, list(matrix = m, demo = ages))
@@ -294,7 +296,7 @@ polymod.endemic.age.dist <- function(participants, contacts, ages, ...) {
 ##'
 ##' this is specific to the POLYMOD data format
 ##' @param participants list of participants
-##' @param contacts list of contacts
+##' @param contacts (list) of contacts
 ##' @param agegroups age groups
 ##' @return epidemic age distribution as calculated by epidemic.age.dist
 ##' @author Sebastian Funk
