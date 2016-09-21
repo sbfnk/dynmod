@@ -6,7 +6,7 @@
 of Wallinga (2006)}
 \usage{
 epidemic.age.dist(contact.matrix, q, child.mixing = NA, immunity = 0,
-  final.size.start = 0.01, tol = 1e-05)
+  final.size.start = 0.01, tol = 0.00001)
 }
 \arguments{
 \item{contact.matrix:}{social contact matrix}

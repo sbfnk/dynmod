@@ -6,7 +6,7 @@
 of Wallinga (2006)}
 \usage{
 endemic.age.dist(contact.matrix, q, child.mixing = NA, reporting = NA,
-  vaccination = NA, incidence.start = 0.01, tol = 1e-05)
+  vaccination = NA, incidence.start = 0.01, tol = 0.00001)
 }
 \arguments{
 \item{contact.matrix:}{social contact matrix; this must have the
