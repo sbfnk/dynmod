@@ -376,12 +376,12 @@ backcalc.population <- function(nyears = 1, lower.age.limits = NULL) {
     agewidths <- diff(lower.age.limits)
 
     pop.times <- seq(0, nyears)
-    pop.parameters <- list(births = rep(births.ew[year == 1971, births], nyears + 1),
+    ew.pop.parameters <- list(births = rep(births.ew[year == 1971, births], nyears + 1),
                            deaths = rep(deaths.ew[year == 1971, deaths], nyears + 1),
                            agewidths = agewidths,
                            reverse = T)
     trajectory <- data.table(ode(y = first.pop.state, times = pop.times,
-                                 func = "demo_derivs", parms = pop.parameters,
+                                 func = "demo_derivs", parms = ew.pop.parameters,
                                  hini = 1, dllname = "",
                                  initfunc = "demo_initmod",
                                  nout = 1, outnames = "N"))
@@ -401,14 +401,22 @@ backcalc.population <- function(nyears = 1, lower.age.limits = NULL) {
 ##' @return list of parameters
 ##' @export
 ##' @author Sebastian Funk
-ew.pop.parameters <- function(age.limits, year.limits = NULL, interpolate = FALSE, df = FALSE) {
+pop.parameters <- function(age.limits, births, deaths, year.limits = NULL, interpolate = FALSE, df = FALSE) {
 
     data(births_ew)
     data(deaths_ew)
 
+    if (missing(births)) {
+        births <- births.ew
+    }
+    if (missing(deaths)) {
+        deaths <- deaths.ew
+    }
+
+
     if (is.null(year.limits))
     {
-        year.limits <- intersect(births.ew[, year], deaths.ew[, year])
+        year.limits <- intersect(births[, year], deaths[, year])
     }
 
     if (interpolate)
@@ -419,26 +427,26 @@ ew.pop.parameters <- function(age.limits, year.limits = NULL, interpolate = FALS
 
     parameters <- list()
     parameters[["births"]] <-
-        births.ew[year >= min(year.limits) & year <= max(year.limits), births]
+        births[year >= min(year.limits) & year <= max(year.limits), births]
     parameters[["deaths"]] <-
-        deaths.ew[year >= min(year.limits) & year <= max(year.limits), deaths]
+        deaths[year >= min(year.limits) & year <= max(year.limits), deaths]
 
     ## ageing rates depend on the widths of age bands
     parameters[["ageing"]] <- 1 / diff(unique(age.limits))
 
-    years <- 
-        unique(intersect(births.ew[year >= min(year.limits) & year <= max(year.limits), year], 
-                         deaths.ew[year >= min(year.limits) & year <= max(year.limits), year]))
+    years <-
+        unique(intersect(births[year >= min(year.limits) & year <= max(year.limits), year],
+                         deaths[year >= min(year.limits) & year <= max(year.limits), year]))
     if (df)
     {
         parameters[["births"]] <-
             data.table(year = years,
-                       value = births.ew[year >= min(year.limits) & year <= max(year.limits), births])
+                       value = births[year >= min(year.limits) & year <= max(year.limits), births])
         parameters[["deaths"]] <-
             data.table(year = years,
-                       value = deaths.ew[year >= min(year.limits) & year <= max(year.limits), deaths])
+                       value = deaths[year >= min(year.limits) & year <= max(year.limits), deaths])
         parameters[["ageing"]] <-
-          data.table(age = limits.to.agegroups(age.limits), 
+          data.table(age = limits.to.agegroups(age.limits),
                      value = c(parameters[["ageing"]], 0))
 
         setkey(parameters[["births"]], year)
@@ -454,6 +462,11 @@ ew.pop.parameters <- function(age.limits, year.limits = NULL, interpolate = FALS
 
     return(parameters)
 
+}
+
+## legacy function(deprecated)
+ew.pop.parameters <- function(...) {
+    pop.parameters(...)
 }
 
 ##' Generate initial conditions for measles or chickenpox from given proportion
@@ -1284,15 +1297,15 @@ plot.model.data <- function(parameters, data, init, time.column = "time",
 plot.sampled.run <- function(theta, data, init.sample, time.column = "time",
                              fixed.parameters = NULL, sample.obs = NULL, ...) {
 
-    pop.parameters <-
-        ew.pop.parameters(year.limits = unique(data[, get(time.column)]),
-                          age.limits = unique(data[, lower.age.limit]),
-                          interpolate = !is.null(fixed.parameters[["interpolate"]]))
+    ew.pop.parameters <-
+        pop.parameters(year.limits = unique(data[, get(time.column)]),
+                       age.limits = unique(data[, lower.age.limit]),
+                       interpolate = !is.null(fixed.parameters[["interpolate"]]))
 
     parameters <-
         c(theta,
           fixed.parameters,
-          pop.parameters)
+          ew.pop.parameters)
 
     plot.model.data(parameters, data, init.sample(parameters), time.column,
                     sample.obs, ...)
@@ -1657,10 +1670,10 @@ sample.posterior <- function(sample.prior, eval.prior,
     prior.parameters <-
         sample.prior(fixed.parameters = fixed.parameters)
 
-    pop.parameters <-
-        ew.pop.parameters(year.limits = unique(data[, get(time.column)]),
-                          age.limits = unique(data[, lower.age.limit]),
-                          interpolate = !is.null(fixed.parameters[["interpolate"]]))
+    ew.pop.parameters <-
+        pop.parameters(year.limits = unique(data[, get(time.column)]),
+                       age.limits = unique(data[, lower.age.limit]),
+                       interpolate = !is.null(fixed.parameters[["interpolate"]]))
 
     times <- unique(data[, get(time.column)])
     if (!is.null(tmax))
@@ -1673,7 +1686,7 @@ sample.posterior <- function(sample.prior, eval.prior,
         parameters <-
             c(theta,
               fixed.parameters,
-              pop.parameters)
+              ew.pop.parameters)
 
         init <- gen.init(parameters)
 
@@ -1742,12 +1755,12 @@ forward.initial.conditions <- function(parameters, data, gen.init, thickening = 
                                        time.column = "time")
 {
 
-    pop.parameters <-
-        ew.pop.parameters(year.limits = unique(data[, get(time.column)]),
-                          age.limits = unique(data[, lower.age.limit]),
-                          interpolate = !is.null(parameters[["interpolate"]]))
+    ew.pop.parameters <-
+        pop.parameters(year.limits = unique(data[, get(time.column)]),
+                       age.limits = unique(data[, lower.age.limit]),
+                       interpolate = !is.null(parameters[["interpolate"]]))
 
-    parameters <- c(parameters, pop.parameters)
+    parameters <- c(parameters, ew.pop.parameters)
 
     init <- gen.init(parameters)
 
