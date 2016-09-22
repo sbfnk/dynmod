@@ -403,16 +403,18 @@ backcalc.population <- function(nyears = 1, lower.age.limits = NULL) {
 ##' @author Sebastian Funk
 pop.parameters <- function(age.limits, births, deaths, year.limits = NULL, interpolate = FALSE, df = FALSE) {
 
-    data(births_ew)
-    data(deaths_ew)
 
     if (missing(births)) {
+        data(births_ew)
         births <- births.ew
     }
     if (missing(deaths)) {
+        data(deaths_ew)
         deaths <- deaths.ew
     }
 
+    births <- data.table(births)
+    deaths <- data.table(deaths)
 
     if (is.null(year.limits))
     {
