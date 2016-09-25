@@ -258,7 +258,6 @@ sample.polymod <- function(age.limits, countries, mixing.pop, survey, part.age.c
         age_proportions <- ages$population / sum(ages$population)
         m <- t(t(m / age_proportions) / contacts)
         res[["contacts"]] <- contacts
-        res[["age_proportions"]] <- age_proportions
     }
 
     res <- c(res, list(matrix = m, demo = ages))
