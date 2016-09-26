@@ -1,7 +1,8 @@
 ##' Samples contact patterns to get an age-based contact matrix using
 ##' weights following Baguelin et al. (2013), but using a bootstrap
 ##'
-##' restriction: largest agegroup must not be larger than 90
+##' The elements m_{ij} of the returned matrix denote the average number of contacts in age group j that someone in age group i makes
+##' Restriction: largest agegroup must not be larger than 90
 ##' @param participants participant data
 ##' @param contacts contact data
 ##' @param ages age groups
@@ -248,7 +249,9 @@ sample.polymod <- function(age.limits, countries, mixing.pop, survey, part.age.c
                                     ...)
     if (normalise & !any(is.na(m)))
     {
-        m <- m / eigen(m, only.values = TRUE)$values[1]
+       spectrum <- eigen(m, only.values = TRUE)$values[1]
+       m <- m / spectrum
+       res[["normalisation"]] <- spectrum
     }
 
     res <- list()
@@ -256,7 +259,7 @@ sample.polymod <- function(age.limits, countries, mixing.pop, survey, part.age.c
     {
         contacts <- apply(m, 2, sum)
         age_proportions <- ages$population / sum(ages$population)
-        m <- t(t(m / age_proportions) / contacts)
+        m <- t(t(m / contacts) / age_proportions)
         res[["contacts"]] <- contacts
     }
 
