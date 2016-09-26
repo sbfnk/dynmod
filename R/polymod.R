@@ -247,6 +247,8 @@ sample.polymod <- function(age.limits, countries, mixing.pop, survey, part.age.c
                                     ages = ages,
                                     part.age.column = part.age.column,
                                     ...)
+    res <- list()
+
     if (normalise & !any(is.na(m)))
     {
        spectrum <- eigen(m, only.values = TRUE)$values[1]
@@ -254,7 +256,6 @@ sample.polymod <- function(age.limits, countries, mixing.pop, survey, part.age.c
        res[["normalisation"]] <- spectrum
     }
 
-    res <- list()
     if (split)
     {
         contacts <- apply(m, 2, sum)
