@@ -396,13 +396,13 @@ loadMeaslesSerologyFine1950 <- function(path) {
 ##'
 ##' @param path Path in which to find the raw data
 ##' @author Sebastian Funk
-##' @import reshape2 XLConnect
+##' @import reshape2 
+##' @importFrom readxl read_excel
 loadMMRWorld <- function(path) {
 
     clean_mcv_data <- function(workbook, sheet)
     {
-        mcv.workbook <- loadWorkbook(workbook)
-        mcv.table <- data.table(readWorksheet(mcv.workbook, sheet))
+        mcv.table <- data.table(read_excel(workbook, sheet))
         setnames(mcv.table, names(mcv.table), tolower(names(mcv.table)))
         setnames(mcv.table, "cname", "country")
         mcv.empty.columns <- apply(mcv.table, 2, function(x) {all(is.na(x))})
@@ -921,7 +921,7 @@ loadPopulationWorldAge <- function(path) {
     pop.world.age <- pop.world.age[!is.na(lower.age.limit)]
 
     pop.world.age <- clean_countries(pop.world.age)
-    
+
     save(pop.world.age, file = "pop_world_age.RData")
 
 }
@@ -930,13 +930,13 @@ loadPopulationWorldAge <- function(path) {
 ##'
 ##' @param path Path in which to find the raw data
 ##' @author Sebastian Funk
-##' @import openxlsx
+##' @importFrom readxl read_excel
 loadDemographicsEW <- function(path) {
 
-    sheets <- list(births = "Live births", deaths = "Deaths")
-    for (sheet in names(sheets))
+    demo_sheets <- list(births = "Live births", deaths = "Deaths")
+    for (sheet in names(demo_sheets))
     {
-        demo.ew <- read.xlsx(paste(path, "annualreferencetablesummer2015_tcm77-416007.xlsx", sep = "/"), sheet = sheets[[sheet]])
+        demo.ew <- read_excel(paste(path, "annualreferencetablesummer2015_tcm77-416007.xlsx", sep = "/"), sheet = demo_sheets[[sheet]])
         header_found <- FALSE
         n <- 0
         while (!header_found )
@@ -1060,17 +1060,16 @@ loadMMREuropeTimings <- function(path) {
     save(mmr.timings, file = "europe_mmr_timings.RData")
 }
 
-##' Load measles world data 
+##' Load measles world data
 ##'
 ##' @param path Path in which to find the raw data
-##' @import XLConnect
+##' @importFrom readxl read_excel
 ##' @author Sebastian Funk
 loadWorldMeaslesData <- function(path) {
     ## read in world measles data
 
-    incidence.workbook <- loadWorkbook(paste(path, "/who_incidence.xls", sep = ""),
-                                       create = FALSE)
-    ms.world <- data.table(readWorksheet(incidence.workbook, "Measles"))
+    incidence.workbook <- paste0(path, "/who_incidence.xlsx")
+    ms.world <- data.table(read_excel(incidence.workbook, "Measles"))
     setnames(ms.world, names(ms.world), tolower(names(ms.world)))
     ms.world[, disease := NULL]
     ms.world <-
@@ -1088,15 +1087,13 @@ loadWorldMeaslesData <- function(path) {
 ##' Load SIA data
 ##'
 ##' @param path Path in which to find the raw data
-##' @import XLConnect
+##' @importFrom readxl read_excel
 ##' @author Sebastian Funk
 loadSIAData <- function(path)
 {
 
-    sia.workbook <-
-        loadWorkbook(paste(path, "/RVC-vaccination-info-from-JRF-WHO-HQ.xlsx",
-                           sep = ""))
-    sia <- data.table(readWorksheet(sia.workbook, "SIA 2000-2014"))
+    sia.workbook <- paste0(path, "/RVC-vaccination-info-from-JRF-WHO-HQ.xlsx")
+    sia <- data.table(read_excel(sia.workbook, "SIA 2000-2014"))
     setnames(sia, colnames(sia), tolower(colnames(sia)))
 
     sia <- clean_countries(sia)
@@ -1145,14 +1142,13 @@ loadSIAData <- function(path)
 ##' Load SIA data
 ##'
 ##' @param path Path in which to find the raw data
-##' @import XLConnect reshape2
+##' @import reshape2
+##' @importFrom readxl read_excel
 ##' @author Sebastian Funk
 loadRVCVaccinationData <- function(path)
 {
-    rvc.workbook <-
-        loadWorkbook(paste(path, "/Historical-coverages-reported-to-RVC_28_10.xlsx",
-                           sep = ""))
-    rvc.measles <- data.table(readWorksheet(rvc.workbook, "Measles coverage to RVC"))
+    rvc.workbook <- paste0(path, "/Historical-coverages-reported-to-RVC_28_10.xlsx")
+    rvc.measles <- data.table(read_excel(rvc.workbook, "Measles coverage to RVC"))
 
     cols1.nb <- grep("^Col[0-9]+", colnames(rvc.measles), invert = TRUE)
     cols1.names <- colnames(rvc.measles)[cols1.nb]
@@ -1206,21 +1202,21 @@ loadRVCVaccinationData <- function(path)
 ##' Load worldwide serology data
 ##'
 ##' @param path Path in which to find the raw data
-##' @import XLConnect reshape2
+##' @import reshape2
+##' @importFrom readxl excel_sheets read_excel
 ##' @author Sebastian Funk
 loadWorldPopulationProspectData <- function(path)
 {
-    sheets <- getSheets(wpp.workbook)
-    sheets <- setdiff(sheets, "NOTES")
+    wpp.workbook <- paste0(path, "/WPP2012_POP_F07_1_POPULATION_BY_AGE_BOTH_SEXES.XLS")
 
-    wpp.workbook <-
-        loadWorkbook(paste0(path, "/WPP2012_POP_F07_1_POPULATION_BY_AGE_BOTH_SEXES.XLS"))
+    all_sheets <- excel_sheets(wpp.workbook)
+    sheets <- setdiff(all_sheets, "NOTES")
 
     wpp.table <- NULL
 
     for (sheet in sheets)
     {
-        temp.table <- data.table(readWorksheet(wpp.workbook, sheet))
+        temp.table <- data.table(read_excel(wpp.workbook, sheet))
         temp.table <- temp.table[!is.na(Col1)]
         setnames(temp.table, colnames(temp.table), unlist(temp.table[1]))
         temp.table <- temp.table[-1]
