@@ -40,19 +40,29 @@ sample.contact.matrix <- function(participants,
     ages[, upper.age.limit := c(ages$lower.age.limit[-1], max.age)]
 
     ## assign age group to participants
+    participants[, lower.age.limit := reduce.agegroups(get(part.age.column), ages$lower.age.limit)]
+    present.lower.age.limits <-
+        participants[, .N, by = lower.age.limit][N > 1]$lower.age.limit
+    present.lower.age.limits <-
+        present.lower.age.limits[order(present.lower.age.limits)]
+
+    ages[, lower.age.limit := reduce.agegroups(lower.age.limit, present.lower.age.limits)]
+    ages <- ages[, list(population = sum(population)), by = lower.age.limit]
+
+    if (max.age %in% present.lower.age.limits) max.age <- max.age + 1
+
     participants[, agegroup := cut(participants[, get(part.age.column)],
-                                   breaks = union(unique(ages$lower.age.limit), max.age),
-                            right = FALSE)]
+                                   breaks = union(present.lower.age.limits, max.age),
+                                   right = FALSE)]
 
     ## get number of participants in each age group
-    participants.age <- unname(table(participants[, agegroup]))
+    participants.age <- unname(table(participants[, lower.age.limit]))
 
     ## take a bootstrap sample from the participants
     part.sample <- participants[sample(nrow(participants), replace = T)]
 
     ## assign weights to participants, to account for weekend/weekday
     ## variation
-
     if (dayofweek.column %in% colnames(part.sample))
     {
         part.sample[get(dayofweek.column) %in% 1:5, weight := 5 / nrow(part.sample[get(dayofweek.column) %in% 1:5])]
@@ -62,11 +72,11 @@ sample.contact.matrix <- function(participants,
     {
         part.sample[, weight := 1]
     }
-    ##  part.sample[, weight := apply(part.sample, 1, weight.func)]
 
     ## gather contacts for sampled participants
     contacts.sample <- data.table(merge(contacts, part.sample, by = id.column,
                                         all = F, allow.cartesian = T))
+
     for (this.agegroup in unique(contacts.sample[is.na(get(contact.age.column)), agegroup]))
     {
         contacts.sample[is.na(get(contact.age.column)) & agegroup == this.agegroup,
@@ -74,8 +84,8 @@ sample.contact.matrix <- function(participants,
     }
     ## age groups
     contacts.sample[, cnt.agegroup := cut(get(contact.age.column),
-                            breaks = union(unique(ages$lower.age.limit), max.age),
-                            right = FALSE)]
+                                          breaks = union(present.lower.age.limits, max.age),
+                                          right = FALSE)]
 
     ## further weigh contacts if columns are specified
     if (length(add.weights) > 0) {
