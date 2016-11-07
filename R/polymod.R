@@ -32,10 +32,11 @@ sample.contact.matrix <- function(participants,
     }
     participants <- participants[!is.na(get(part.age.column))]
 
-    max.age <- max(max(participants[, get(part.age.column)]),
+    max.age <- min(max(participants[, get(part.age.column)]),
                    max(contacts[, get(contact.age.column)], na.rm = TRUE))
 
-    ages <- ages[lower.age.limit < max.age]
+    ages[, lower.age.limit := reduce.agegroups(lower.age.limit, lower.age.limit[lower.age.limit <= max.age])]
+    ages <- ages[, list(population = sum(population)), by = lower.age.limit]
     ages[, upper.age.limit := c(ages$lower.age.limit[-1], max.age)]
 
     ## assign age group to participants
@@ -108,7 +109,7 @@ sample.contact.matrix <- function(participants,
     rownames(weighted.matrix) <- cols
     colnames(weighted.matrix) <- cols
 
-    return(weighted.matrix)
+    return(list(matrix = weighted.matrix, ages = ages))
 }
 
 ##' samples a contact matrix using weights following Baguelin et al. (2013), but
@@ -152,20 +153,21 @@ sample.contacts.and.matrix <- function(n = 1, ...)
         contact.matrix <- sample.contact.matrix(...)
         if (is.null(matrix.sum))
         {
-            matrix.sum <- matrix(0, nrow = nrow(contact.matrix),
-                                 ncol = ncol(contact.matrix))
-            matrix.sqsum <- matrix(0, nrow = nrow(contact.matrix),
-                                 ncol = ncol(contact.matrix))
+            matrix.sum <- matrix(0, nrow = nrow(contact.matrix$matrix),
+                                 ncol = ncol(contact.matrix$matrix))
+            matrix.sqsum <- matrix(0, nrow = nrow(contact.matrix$matrix),
+                                 ncol = ncol(contact.matrix$matrix))
         }
-        matrix.sum <- matrix.sum + contact.matrix
-        matrix.sqsum <- matrix.sqsum + contact.matrix * contact.matrix
+        matrix.sum <- matrix.sum + contact.matrix$matrix
+        matrix.sqsum <- matrix.sqsum + contact.matrix$matrix * contact.matrix$matrix
     }
 
     if (n == 1) {
-        matrix.sum
+        return(list(matrix = matrix.sum, ages = contact.matrix$ages))
     } else {
         list(mean = matrix.sum / n,
-             sd = sqrt(matrix.sqsum / n - (matrix.sum / n)^2))
+             sd = sqrt(matrix.sqsum / n - (matrix.sum / n)^2),
+             ages = contact.matrix$ages)
     }
 }
 
@@ -247,6 +249,9 @@ sample.polymod <- function(age.limits, countries, mixing.pop, survey, part.age.c
                                     ages = ages,
                                     part.age.column = part.age.column,
                                     ...)
+    ages <- m$ages
+    m <- m$matrix
+
     res <- list()
 
     if (normalise & !any(is.na(m)))
