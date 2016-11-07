@@ -115,9 +115,7 @@ sample.contact.matrix <- function(participants,
 ##' using a bootstrap; first, contacts and ages are sampled
 ##'
 ##' restriction: largest agegroup must not be larger than 90
-##' ##' @param n number of matrices to sample; if > 1, standard deviation
-##' is reported as well as means
-##' @param n number of samples
+##' @param n number of matrices to sample; if > 1, standard deviation is reported as well as means
 ##' @param ... parameters to pass to sample.contact.matrix
 ##' @return contact matrix (means and, if n > 1, standard deviation)
 ##' @export
