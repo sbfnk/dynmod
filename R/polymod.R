@@ -41,7 +41,7 @@ sample.contact.matrix <- function(participants,
 
     ## assign age group to participants
     participants[, agegroup := cut(participants[, get(part.age.column)],
-                            breaks = c(unique(ages$lower.age.limit), max.age),
+                                   breaks = union(unique(ages$lower.age.limit), max.age),
                             right = FALSE)]
 
     ## get number of participants in each age group
@@ -74,7 +74,7 @@ sample.contact.matrix <- function(participants,
     }
     ## age groups
     contacts.sample[, cnt.agegroup := cut(get(contact.age.column),
-                            breaks = c(unique(ages$lower.age.limit), max.age),
+                            breaks = union(unique(ages$lower.age.limit), max.age),
                             right = FALSE)]
 
     ## further weigh contacts if columns are specified
