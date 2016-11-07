@@ -4,10 +4,19 @@
 \alias{plotMeaslesSerology}
 \title{Plot measles serology}
 \usage{
-plotMeaslesSerology(ext = NA)
+plotMeaslesSerology(ext, equivocal = c("positive", "negative", "exclude"),
+  lower.age.limits, confint.method = "wilson", target.levels)
 }
 \arguments{
 \item{ext}{plot extensions}
+
+\item{equivocal}{whether to plot equivocal tests as positive, negative, or exclude them}
+
+\item{lower.age.limits}{age groups to summarise to (lower limits)}
+
+\item{confint.method}{method for calculating binomial confidence intervals}
+
+\item{target.levels}{target immunity levels (as vector, according to lower.age.limits which must be given)}
 }
 \description{
 Plot measles serology
