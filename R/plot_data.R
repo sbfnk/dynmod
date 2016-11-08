@@ -641,15 +641,78 @@ plotMeaslesWHOData <- function(ext = NA) {
 ##' Plot measles serology
 ##'
 ##' @param ext plot extensions
+##' @param equivocal whether to plot equivocal tests as positive, negative, or exclude them
+##' @param lower.age.limits age groups to summarise to (lower limits)
+##' @param confint.method method for calculating binomial confidence intervals
+##' @param target.levels target immunity levels (as vector, according to lower.age.limits which must be given)
 ##' @author Sebastian Funk
-##' @import ggplot2
-plotMeaslesSerology <- function(ext = NA) {
+##' @import ggplot2 binom
+plotMeaslesSerology <- function(ext, equivocal = c("positive", "negative", "exclude"), lower.age.limits, confint.method = "wilson", target.levels) {
 
     data(ms_sero)
 
-    ms.sero.age <-
-        ms.sero[, list(non.negative = mean(non.negative)),
-                by = list(country, age1)]
+    sero <- copy(ms.sero)
+
+    equivocal <- match.arg(equivocal)
+
+    if (equivocal == "positive") {
+        sero <- sero[stdres == "EQI", stdres := "POS"]
+    } else if (equivocal == "negative") {
+        sero <- sero[stdres == "EQI", stdres := "NEG"]
+    } else {
+        sero <- sero[stdres != "EQI"]
+    }
+
+    if (!missing(lower.age.limits)) {
+        sero <- sero[, age := reduce.agegroups(age1, lower.age.limits)]
+        sero <- sero[, age := limits.to.agegroups(age)] 
+    } else
+    {
+        sero <- sero[, age := age1]
+    }
+
+    sero.age <-
+        sero[, list(pos = sum(stdres == "POS"), N = .N),
+             by = list(country, age)]
+    confints <- data.table(binom.confint(sero.age$pos, sero.age$N,
+                                         methods = confint.method))
+    sero.age <- cbind(sero.age, confints[, list(value = mean, lower, upper)])
+
+    p <- ggplot(sero.age, aes(x = age, y = value))
+    p <- p + geom_point()
+    p <- p + geom_errorbar(aes(ymin = lower, ymax = upper))
+    p <- p + facet_wrap(~ country, scales = "free_x")
+    p <- p + scale_y_continuous("Proportion seropositive")
+    if (!missing(lower.age.limits))
+    {
+        p <- p + scale_x_discrete("Age group")
+    } else
+    {
+        p <- p + scale_x_continuous("Age")
+    }
+
+    if (!missing(target.levels))
+    {
+        plot_levels <-
+            data.table(age = lower.age.limits, value = target.levels)
+        if (any(plot_levels[, value] > 1)) {
+            plot_levels <- plot_levels[, value := value / 100]
+        }
+        if (!missing(lower.age.limits))
+        {
+            plot_levels <- plot_levels[, age := limits.to.agegroups(age)]
+        }
+        p <- p + geom_errorbar(data = plot_levels,
+                               aes(ymin = value, ymax = value),
+                               color = "red")
+    }
+
+    if (missing(ext)) {
+        p
+    } else {
+        ggsave(paste("mmr_uptake.", ext, sep = ""), p)
+    }
+
 }
 
 ##' Plot MMR data
