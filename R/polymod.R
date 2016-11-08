@@ -254,11 +254,17 @@ sample.polymod <- function(age.limits, countries, mixing.pop, survey, part.age.c
 
     res <- list()
 
-    if (normalise & !any(is.na(m)))
+    if (normalise)
     {
-       spectrum <- eigen(m, only.values = TRUE)$values[1]
-       m <- m / spectrum
-       res[["normalisation"]] <- spectrum
+        if (!any(is.na(m)))
+        {
+            spectrum <- eigen(m, only.values = TRUE)$values[1]
+            m <- m / spectrum
+            res[["normalisation"]] <- spectrum
+        } else
+        {
+            res[["normalisation"]] <- NA_real_
+        }
     }
 
     if (split)
