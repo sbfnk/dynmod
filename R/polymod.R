@@ -33,11 +33,10 @@ sample.contact.matrix <- function(participants,
     participants <- participants[!is.na(get(part.age.column))]
 
     max.age <- min(max(participants[, get(part.age.column)]),
-                   max(contacts[, get(contact.age.column)], na.rm = TRUE))
+                   max(contacts[, get(contact.age.column)], na.rm = TRUE)) + 1
 
-    ages[, lower.age.limit := reduce.agegroups(lower.age.limit, lower.age.limit[lower.age.limit <= max.age])]
+    ages[, lower.age.limit := reduce.agegroups(lower.age.limit, lower.age.limit[lower.age.limit < max.age])]
     ages <- ages[, list(population = sum(population)), by = lower.age.limit]
-    ages[, upper.age.limit := c(ages$lower.age.limit[-1], max.age)]
 
     ## assign age group to participants
     participants[, lower.age.limit := reduce.agegroups(get(part.age.column), ages$lower.age.limit)]
@@ -48,8 +47,10 @@ sample.contact.matrix <- function(participants,
 
     ages[, lower.age.limit := reduce.agegroups(lower.age.limit, present.lower.age.limits)]
     ages <- ages[, list(population = sum(population)), by = lower.age.limit]
+    ages[, upper.age.limit := c(ages$lower.age.limit[-1], max.age)]
 
-    if (max.age %in% present.lower.age.limits) max.age <- max.age + 1
+    contacts[, lower.age.limit := reduce.agegroups(get(part.age.column), ages$lower.age.limit)]
+    contacts <- merge(contacts, ages[, list(lower.age.limit, upper.age.limit)], by = "lower.age.limit")
 
     participants[, agegroup := cut(participants[, get(part.age.column)],
                                    breaks = union(present.lower.age.limits, max.age),
@@ -79,8 +80,12 @@ sample.contact.matrix <- function(participants,
 
     for (this.agegroup in unique(contacts.sample[is.na(get(contact.age.column)), agegroup]))
     {
-        contacts.sample[is.na(get(contact.age.column)) & agegroup == this.agegroup,
-                        paste(contact.age.column) := sample(contacts.sample[!is.na(get(contact.age.column)) & agegroup == this.agegroup, get(contact.age.column)], size = .N, replace = TRUE)]
+        if (nrow(contacts.sample[!is.na(get(contact.age.column)) & agegroup == this.agegroup]) > 0)
+        {
+            contacts.sample[is.na(get(contact.age.column)) & agegroup == this.agegroup, paste(contact.age.column) := sample(contacts.sample[!is.na(get(contact.age.column)) & agegroup == this.agegroup, get(contact.age.column)], size = .N, replace = TRUE)]
+        } else {
+            contacts.sample[is.na(get(contact.age.column)) & agegroup == this.agegroup, paste(contact.age.column) := runif(.N, min = lower.age.limit, max = upper.age.limit - 1)]
+        }
     }
     ## age groups
     contacts.sample[, cnt.agegroup := cut(get(contact.age.column),
