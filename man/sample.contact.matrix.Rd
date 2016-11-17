@@ -32,7 +32,8 @@ sample.contact.matrix(participants, contacts, ages, part.age.column,
 age-based mixing matrix
 }
 \description{
-restriction: largest agegroup must not be larger than 90
+The elements m_{ij} of the returned matrix denote the average number of contacts in age group j that someone in age group i makes
+Restriction: largest agegroup must not be larger than 90
 }
 \author{
 Sebastian Funk
