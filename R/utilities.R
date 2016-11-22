@@ -1,16 +1,5 @@
 .datatable.aware <- TRUE
 
-##' Reduce the number of age groups given a broader set of limtis
-##'
-##' Operates on lower limits
-##' @param x vector of limits
-##' @param limits new limits
-##' @return vector with the new agegroups
-##' @export
-reduce.agegroups <- function(x, limits) {
-    return(limits[findInterval(x, limits)])
-}
-
 ##' Convert lower age limits to age groups.
 ##'
 ##' Mostly used for plot labelling
