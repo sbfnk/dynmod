@@ -3,27 +3,28 @@
 ##' Convert lower age limits to age groups.
 ##'
 ##' Mostly used for plot labelling
-##' @param limits Lower age limits
+##' @param x age limits to transform
+##' @param limits lower age limits; if not given, will use all limits in \code{x}
 ##' @return Age groups (limits separated by dashes)
 ##' @export
-limits.to.agegroups <- function(limits) {
-    unique.limits <- unique(limits)
-    if (length(unique.limits) > 1)
+limits.to.agegroups <- function(x, limits) {
+    if (missing(limits)) limits <- unique(x)
+    if (length(limits) > 1)
     {
-        agegroups <- c(sapply(seq(1, length(unique.limits) - 1), function(x) {
-            if ((unique.limits[x+1] - 1) > unique.limits[x]) {
-                paste(unique.limits[x], unique.limits[x+1] - 1, sep = "-")
+        agegroups <- c(sapply(seq(1, length(limits) - 1), function(y) {
+            if ((limits[y+1] - 1) > limits[y]) {
+                paste(limits[y], limits[y+1] - 1, sep = "-")
             } else {
-                unique.limits[x]
+                limits[y]
             }
-        }), paste(unique.limits[length(unique.limits)], "+", sep = ""))
+        }), paste(limits[length(limits)], "+", sep = ""))
     } else
     {
         agegroups <- c("all")
     }
     agegroups <- factor(agegroups, levels = agegroups)
-    names(agegroups) <- unique.limits
-    return(agegroups[as.character(limits)])
+    names(agegroups) <- limits
+    return(unname(agegroups[as.character(x)]))
 }
 
 ##' Convert age groups to lower age limits.
