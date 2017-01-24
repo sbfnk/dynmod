@@ -969,12 +969,11 @@ loadPolymod <- function(path) {
 
     ## read in participant data
     participants <-
-        data.table(read.csv(paste(path, "/participants_final_v3.csv", sep = "")))
+        fread(paste(path, "/participants_final_v3.csv", sep = ""))
 
     ## read in contact data
     contacts <-
-        data.table(read.csv(paste(path, "/contacts_final_v2_with_weights.csv",
-                                  sep = "")))
+        fread(paste(path, "/contacts_final_v2_with_weights.csv", sep = ""))
 
     participants[country == "BE", country := "Belgium"]
     participants[country == "DE", country := "Germany"]
