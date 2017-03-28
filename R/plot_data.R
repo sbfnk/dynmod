@@ -663,9 +663,31 @@ plotMeaslesSerology <- function(ext, equivocal = c("positive", "negative", "excl
         sero <- sero[stdres != "EQI"]
     }
 
+    ## countries <- unique(sero[, country])
+    ## country_age <- lapply(countries, function(x) {
+    ##     ret <- list()
+    ##     for (age in c("agegrp", "age1", "age2")) {
+    ##         ages <- table(sero[country == x, get(age)])
+    ##         ages <- ages[ages > 0]
+    ##         lower.age.limits <- names(ages)
+    ##         lower.age.limits <- sub("[-+ ].*$", "", lower.age.limits)
+    ##         lower.age.limits <- sub("^<", "", lower.age.limits)
+    ##         ages_order <- order(as.integer(lower.age.limits))
+    ##         ages <- names(ages)[ages_order]
+    ##         ret[[age]] <- ages
+    ##     }
+    ##     return(ret)
+    ## })
+    ## names(country_age) <- countries
+
+    if (any(lower.age.limits > 20)) warning("Sweden has a gap between 34 and 65")
+
+    ## work out age
+    sero <- sero[, lower.age.limit := as.integer(sub("[-+ ].*$", "", age1))]
+
     if (!missing(lower.age.limits)) {
-        sero <- sero[, age := reduce.agegroups(age1, lower.age.limits)]
-        sero <- sero[, age := limits.to.agegroups(age)] 
+        sero <- sero[, lower.age.limit := reduce_agegroups(lower.age.limit, lower.age.limits)]
+        sero <- sero[, agegroup := limits.to.agegroups(lower.age.limit)]
     } else
     {
         sero <- sero[, age := age1]

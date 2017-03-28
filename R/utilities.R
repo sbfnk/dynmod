@@ -8,7 +8,7 @@
 ##' @return Age groups (limits separated by dashes)
 ##' @export
 limits.to.agegroups <- function(x, limits) {
-    if (missing(limits)) limits <- unique(x)
+    if (missing(limits)) limits <- unique(x)[order(unique(x))]
     if (length(limits) > 1)
     {
         agegroups <- c(sapply(seq(1, length(limits) - 1), function(y) {
